@@ -1,7 +1,6 @@
 import networkx as nx
 import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
 
 def read_graph_from_csv(nodes_file, edges_file):    
     # Crear un grafo vacío
@@ -73,7 +72,7 @@ nx.draw_networkx_labels(G, pos, labels=labels, font_size=10, font_color='black',
 # Mostrar la barra de colores
 sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
 sm.set_array([])
-fig.colorbar(sm, ax=ax, label='Peso')
+fig.colorbar(sm, ax=ax, label='Uso de linea en tanto por uno')
 
-plt.title("Grafo con aristas coloreadas según el peso y valores de nodos")
+plt.title("Grafo uso de lineas eléctricas.")
 plt.show()
