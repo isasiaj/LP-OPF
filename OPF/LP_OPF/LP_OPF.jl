@@ -19,36 +19,30 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, n
     
 
     ########## INICIALIZAR MODELO ##########
-    # Se crea el modelo "m" con la función de JuMP.Model() y tiene como argumento el optimizador usado,
-    # en este caso, el solver Gurobi
-    if solver == "Gurobi"
-        # Nota Mayo de 2024: se probó modelar la variable binaria on/off de los generadores y funcionaba con Gurobi
-        m_cons = Model(Gurobi.Optimizer)
-        # Se deshabilita las salidas por defecto que tiene el optimizador
-        set_silent(m_cons)
+    # Se crea el modelo "m_cons" con la función de JuMP.Model() y tiene como argumento el optimizador usado,
+    # y el modelo "m_no_cons" con la función.
+    # El modelo "m_no_cons" no se tendra en cuenta la potencia maxima en las lineas, para hacer el calculo 
+    # del precio marginal sin el coste por congestion en las lineas
 
+    if solver == "Gurobi"   # en este caso, el solver Gurobi
+        m_cons = Model(Gurobi.Optimizer)
         m_no_cons = Model(Gurobi.Optimizer)
         # Se deshabilita las salidas por defecto que tiene el optimizador
+        set_silent(m_cons)
         set_silent(m_no_cons)
 
-    # Para el solver HiGHS
-    elseif solver == "HiGHS"
+    elseif solver == "HiGHS"    # Para el solver HiGHS
         m_cons = Model(HiGHS.Optimizer)
-        # Se deshabilita las salidas por defecto que tiene el optimizador
-        set_silent(m_cons)
-
         m_no_cons = Model(HiGHS.Optimizer)
         # Se deshabilita las salidas por defecto que tiene el optimizador
+        set_silent(m_cons)
         set_silent(m_no_cons)
 
-    # Para el solver Ipopt
-    elseif solver == "Ipopt"
-        m_cons = Model(Ipopt.Optimizer)
-        # Se deshabilita las salidas por defecto que tiene el optimizador
-        set_silent(m_cons)
-
+    elseif solver == "Ipopt"    # Para el solver Ipopt
+        m_cons = Model(Ipopt.Optimizer)        
         m_no_cons = Model(Ipopt.Optimizer)
         # Se deshabilita las salidas por defecto que tiene el optimizador
+        set_silent(m_cons)
         set_silent(m_no_cons)
     
     else # En caso de error
@@ -56,34 +50,36 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, n
     
     end
 
-    # Optimizacion con modelo de restriccion en las lineas
+    # Optimizacion con modelo de restriccion por potecnia maxima en las lineas.
     m_cons, P_G, Pₗᵢₙₑ, θ, node_lmp =calculoOPF(m_cons, dLinea, dGen, dNodo, nN, nL, bMVA)
 
+    # Se crea unos nuevos datos de lineas de manera que la potencia maxima es ifgual a la demanda total 
+    # del sistema.
     dLinea_no_cons= copy(dLinea)
     for ii in 1:nL
         dLinea_no_cons.L_SMAX[ii] =  round(Int, sum(dNodo.PD))
     end
-    # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por saturación
+    # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
     m_no_cons, _, _, _, node_mec =calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nN, nL, bMVA)
 
-    # Guardar solución en DataFrames en caso de encontrar solución óptima
+    # Guardar solución en DataFrames en caso de encontrar solución óptima en cada modelo.
     if ((termination_status(m_cons) == OPTIMAL || termination_status(m_cons) == LOCALLY_SOLVED || termination_status(m_cons) == ITERATION_LIMIT) &&
         (termination_status(m_no_cons) == OPTIMAL || termination_status(m_no_cons) == LOCALLY_SOLVED || termination_status(m_no_cons) == ITERATION_LIMIT))
 
         # solGen recoge los valores de la potencia generada de cada generador de la red
         # Primera columna: nodo
-        # Segunda columna: valor lo toma de la variable "P_G" (está en pu y se pasa a MVA) del generador de dicho nodo
+        # Segunda columna: valor lo toma de la variable "P_G" (está en pu y se pasa a MVA) del generador de dicho nodo.
         solGen = DataFrames.DataFrame(BUS = (dGen.BUS), PGEN = (value.(P_G[dGen.BUS]) * bMVA))
 
         # solFlujos recoge el flujo de potencia que pasa por todas las líneas
         # Primera columna: nodo del que sale
         # Segunda columna: nodo al que llega
         # Tercera columna: valor del flujo de potencia en la línea
+        # Cuarta  columna: valor en tanto por uno de la satuaracion de la linea:  potencia en la línea / potencia maxima en la linea
         solFlujos = DataFrames.DataFrame(F_BUS = Int[], T_BUS = Int[], FLUJO = Float64[], LINE_CAPACITY = Float64[])
-        # El flujo por la línea que conecta los nodos i-j es igual de la susceptancia de la línea por la diferencia de ángulos entre los nodos i-j
-        # Pᵢⱼ = Bᵢⱼ · (θᵢ - θⱼ)
 
         for ii in 1:nL
+            # Se crean dos casos para que siempre la potencia de positiva, invirtiendo nodos F_BUS y T_BUS
             if value(Pₗᵢₙₑ[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] ) > 0
                 push!(solFlujos, Dict(:F_BUS => (dLinea.F_BUS[ii]),
                                       :T_BUS => (dLinea.T_BUS[ii]), 
@@ -106,6 +102,11 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, n
             push!(solAngulos, Dict(:BUS => ii, :GRADOS => round(rad2deg(value(θ[ii])), digits = 2)))
         end
 
+        # solLMP recoge los precios marginales en cada nodo
+        # Primera columna: nodo
+        # Segunda columna: Precio marginal local en cada de la red
+        # Tercera columna: Componente de energia, este es igual en todos los nodos al no tener en cuenta saturacion en las lineas
+        # Cuarta  columna: componente de congestion del precio marginal, como afecta la congestion en las lineas sobre el precio marginal en ese nodo.
         solLMP = DataFrames.DataFrame(BUS = Int[], LMP = Float64[], MEC = Float64[], MCC = Float64[])
         for ii in 1:nN
             # Marginal price of energy, €/MWh
@@ -115,7 +116,8 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, n
                                :MCC => round(node_lmp[ii] - node_mec[ii], digits = 3)))
         end
 
-        # Devuelve como solución el modelo "m" y los DataFrames generados de generación, flujos y ángulos
+        # Devuelve como solución el modelo "m_cons" y los DataFrames generados de generación, flujos y ángulos
+        # se deuvlve m_cons ya que tiene en cuenta las restricciones reales de las lineas.
         return m_cons, solGen, solFlujos, solAngulos, solLMP
 
     # En caso de que no se encuentre solución a la optimización, se mostrará en pantalla el error
