@@ -16,7 +16,7 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     # El flujo por la línea que conecta los nodos i-j es igual de la susceptancia de la línea por la diferencia de ángulos entre los nodos i-j
     # Pᵢⱼ = Bᵢⱼ · (θᵢ - θⱼ)
     @variable(modelo, Pₗᵢₙₑ[ii in 1:nN, jj in 1:nN], start = 0)
-    @constraint(modelo, [ii in 1:nN, jj in 1:nN], Pₗᵢₙₑ[i,j] == B[i, j] * (θ[j] - θ[i]))
+    @constraint(modelo, [ii in 1:nN, jj in 1:nN], Pₗᵢₙₑ[ii,jj] == B[ii, jj] * (θ[jj] - θ[ii]))
 
     ########## FUNCIÓN OBJETIVO ##########
     # El objetivo del problema es reducir el coste total que se calcula como ∑cᵢ·Pᵢ
