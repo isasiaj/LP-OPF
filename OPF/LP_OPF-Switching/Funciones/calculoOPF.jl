@@ -1,4 +1,4 @@
-function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, nL::Int, bMVA::Int)
+function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, nL::Int, bMVA::Int, Calculate_LMP::Bool)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
@@ -15,8 +15,12 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
 
     # El flujo por la línea que conecta los nodos i-j es igual de la susceptancia de la línea por la diferencia de ángulos entre los nodos i-j
     # Pᵢⱼ = Bᵢⱼ · (θᵢ - θⱼ)
-    @variable(modelo, Pₗᵢₙₑ[ii in 1:nN, jj in 1:nN], start = 0)
-    @constraint(modelo, [ii in 1:nN, jj in 1:nN], Pₗᵢₙₑ[ii,jj] == B[ii, jj] * (θ[jj] - θ[ii]))
+    @variable(modelo, Pₗᵢₙₑ[ii in 1:nL], start = 0)
+
+    # Variable binaria que controla si una linea está o no activa.
+    # Funciona como un interruptor que conecta y desconecta lineas.
+    @variable(modelo, Z[ii in 1:nL], Bin,  start = 1)
+
 
     ########## FUNCIÓN OBJETIVO ##########
     # El objetivo del problema es reducir el coste total que se calcula como ∑cᵢ·Pᵢ
@@ -30,42 +34,60 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     ########## RESTRICCIONES ##########
     # Restricción de la relación entre los nodos: PGen[i] - PDem[i] = ∑(B[i,j] · θ[j]))
     # Siendo 
-    # PGen[i] la potencia generada en el nodo i
-    # PDem[i] la potencia demandada en el nodo i
-    # B[i,j] susceptancia de la linea que conecta los nodos i - j
-    # θ[j] ángulo del nodo j
-    # En la parte izquierda es el balance entre Potencia Generada y Potencia Demandada
+    # P_G[ii] la potencia generada en el nodo ii
+    # P_Demand[ii] la potencia demandada en el nodo ii
+    # En la parte izquierda es el balance entre Potencia Generada menos Potencia Demandada
     # en caso de ser positivo significa que es un nodo que suministra potencia a la red 
     # y en caso negativo, consume potencia de la red
-    # Y en la parte derecha es la función del flujo de potencia en la red
+    # Y en la parte derecha es la función del flujo hacia la red
+    # Se multiplica a ambos lados por bMVA para asegurar que a la hora de calcular el dual quede con unidades
     node_power_balance = []
     for ii in 1:nN
-        local_node_power_balance = @constraint(modelo, P_G[ii]*bMVA == (sum(Pₗᵢₙₑ[ii,jj] for jj in 1:nN) + P_Demand[ii])*bMVA)
+        local_node_power_balance = @constraint(modelo, (P_G[ii] - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.F_BUS[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.T_BUS[jj] == ii ))*bMVA)
         push!(node_power_balance, local_node_power_balance)
     end
 
     # Restricción de potencia máxima por la línea
-    # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ) 
     # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.L_SMAX"
-    @constraint(modelo, [ii in 1:nL], -dLinea.L_SMAX[ii] * dLinea.status[ii] / bMVA <= Pₗᵢₙₑ[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] <= dLinea.L_SMAX[ii] * dLinea.status[ii] / bMVA)
+    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.L_SMAX[ii] / bMVA) * Z[ii])
+    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.L_SMAX[ii] / bMVA) * Z[ii])
 
     # Restricción de potencia mínima y máxima de los generadores
     @constraint(modelo, [ii in 1:nN], P_Gen_lb[ii] * Gen_Status[ii] <= P_G[ii] <= P_Gen_ub[ii] * Gen_Status[ii])
+
+    # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
+    # B[ii,jj] susceptancia de la linea que conecta los nodos ii - jj
+    # θ[ii] ángulo del nodo ii
+    # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ) 
+    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <= B[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] * (θ[dLinea.T_BUS[ii]] - θ[dLinea.F_BUS[ii]] + pi/3*(1 - Z[ii])))
+    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= B[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] * (θ[dLinea.T_BUS[ii]] - θ[dLinea.F_BUS[ii]] - pi/3*(1 - Z[ii])))
 
     # Se selecciona el nodo 1 como nodo de refenrecia
     # Necesario en caso de HiGHS para evitar un bucle infinito al resolver la optimización
     @constraint(modelo, θ[1] == 0)
 
+    # Si la linea no está disponible su varible Z será cero, para asegurar que queda fuera del OPF.
+    for ii in 1:nL
+        if  dLinea.status[ii] == 0
+            @constraint(modelo, Z[ii] == 0)
+        end
+    end
+
     ########## RESOLUCIÓN ##########
     optimize!(modelo) # Optimización
 
     ########### DUAL LMP ###########
+    # Se calcula el dual de cada nodo repecto ala restriccion del balance de potencia.
+    # Dado que la funcion de coste es el euros el resultado quedaria en:  €/MWh
     LMPs = []
-    if has_duals(modelo)
+    if Calculate_LMP
+        LMPs = []
         for ii in 1:nN
             push!(LMPs, dual(node_power_balance[ii]))
         end
+    else
+        LMPs = zeros(nN)
     end
 
-    return modelo, P_G, Pₗᵢₙₑ, θ, LMPs
+    return modelo, P_G, Pₗᵢₙₑ, θ, Z, LMPs
 end

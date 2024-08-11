@@ -10,27 +10,27 @@ function boot()
     test_nodos = DataFrame(BUS = [1, 2], PD = [0, 1], QD = [0, 0], Vmax = [1.1, 1.1], Vmin = [0.9, 0.9])
 
     # Con esta red simple se genera una los diferentes OPF para que ya estén cargados cuando el usuario los utilice
-#    println("Test 1...")
-#    LP_OPF(test_linea, test_generador, test_nodos, 2, 1, 1, "Gurobi")
+    println("Test 1...")
+    LP_OPF(test_linea, test_generador, test_nodos, 2, 1, 1, "Gurobi", false)
 
-#    limpiarTerminal()
+    limpiarTerminal()
 
-#    println("Test1 - Completado")
+    println("Test1 - Completado")
     println("Test 2...")
-    LP_OPF(test_linea, test_generador, test_nodos, 2, 1, 1, "HiGHS")
+    LP_OPF(test_linea, test_generador, test_nodos, 2, 1, 1, "HiGHS",  false)
 
     limpiarTerminal()
 
-    println("Test 1 - Completado")
-    println("Test 2 - Completado")
-    println("Test 3...")
-    LP_OPF(test_linea, test_generador, test_nodos, 2, 1, 1, "Ipopt")
+    # println("Test 1 - Completado")
+    # println("Test 2 - Completado")
+    # println("Test 3...")
+    # LP_OPF(test_linea, test_generador, test_nodos, 2, 1, 1, "Ipopt")
 
-    limpiarTerminal()
+    # limpiarTerminal()
 
-    println("Test 1 - Completado")
-    println("Test 2 - Completado")
-    println("Test 3 - Completado")
+    # println("Test 1 - Completado")
+    # println("Test 2 - Completado")
+    # println("Test 3 - Completado")
     sleep(1)
     
 end

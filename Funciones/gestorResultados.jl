@@ -1,7 +1,6 @@
 # Esta función gestiona la variable del modelo y los DataFrames de la solución de la Optimización
 
-#function gestorResultados(modelo, solGeneradores, solFlujos, solAngulos, rutaM, opfTipo, solver)
-function gestorResultados(modelo, solGeneradores, solFlujos, solAngulos, solLMP, rutaM, solver)
+function gestorResultados(modelo, solGeneradores, solFlujos, solAngulos, solLMP, rutaM, opfTipo, solver)
 
     # modelo: El modelo que se ha creado para optimizar
     # solGeneradores: DataFrame con la solución de los generadores

@@ -8,8 +8,8 @@ function selectEstudio()
         casoEst = elegirOpcion(listaCasos, "caso")
 
         # Lista de las opciones del tipo de OPF que se puede usar
-        #listaOPF = ["LP-OPF", "AC-OPF"]
-        #opfTip = elegirOpcion(listaOPF, "tipo de OPF")
+        listaOPF = ["LP-OPF", "LP-OPF LMP"]
+        opfTip = elegirOpcion(listaOPF, "tipo de OPF")
 
         # Se pregunta el solver que se quiere emplear
         listaACSolvers = ["Gurobi", "HiGHS", "Ipopt"]
@@ -21,7 +21,7 @@ function selectEstudio()
         # Impirmir en terminal el resumen de todos las opciones elegidas
         println("Resumen:")
         println("Caso de estudio ----- ", casoEst)
-        #println("Tipo de OPF --------- ", opfTip)
+        println("Tipo de OPF --------- ", opfTip)
         println("Optimizador --------- ", s)
 
         # Pregunta al usuario si las opciones listados anteriormente concuerdan con lo que quiere resolver, 
@@ -31,7 +31,7 @@ function selectEstudio()
         
         # Si la respuesta es un "ENTER" procede a continuar y devolver dichas opciones
         if respuesta == ""
-            return casoEst, #=opfTip,=# s
+            return casoEst, opfTip, s
             break
 
         # En caso de introducir cualquier entrada, procede a cancelar y volver a seleccionar las opciones
