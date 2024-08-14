@@ -8,8 +8,12 @@ function selectEstudio()
         casoEst = elegirOpcion(listaCasos, "caso")
 
         # Lista de las opciones del tipo de OPF que se puede usar
-        listaOPF = ["LP-OPF", "LP-OPF LMP"]
+        listaOPF = ["LP-OPF"]
         opfTip = elegirOpcion(listaOPF, "tipo de OPF")
+        # Calcular o no precios marginales locales
+        optionLPM = elegirSiNo("LPM")
+        # Optimizar o no la topología de la red
+        optionLineSW = elegirSiNo("Optimizar topologia")
 
         # Se pregunta el solver que se quiere emplear
         listaACSolvers = ["Gurobi", "HiGHS", "Ipopt"]
@@ -18,10 +22,12 @@ function selectEstudio()
         # Limpieza del terminal
         limpiarTerminal()
 
-        # Impirmir en terminal el resumen de todos las opciones elegidas
+        # Imprimir en terminal el resumen de todos las opciones elegidas
         println("Resumen:")
         println("Caso de estudio ----- ", casoEst)
         println("Tipo de OPF --------- ", opfTip)
+        println("Calculo LPM --------- ", string(optionLPM))
+        println("Optimizar topologia - ", string(optionLineSW))
         println("Optimizador --------- ", s)
 
         # Pregunta al usuario si las opciones listados anteriormente concuerdan con lo que quiere resolver, 
@@ -31,7 +37,7 @@ function selectEstudio()
         
         # Si la respuesta es un "ENTER" procede a continuar y devolver dichas opciones
         if respuesta == ""
-            return casoEst, opfTip, s
+            return casoEst, opfTip, optionLPM, optionLineSW, s
             break
 
         # En caso de introducir cualquier entrada, procede a cancelar y volver a seleccionar las opciones

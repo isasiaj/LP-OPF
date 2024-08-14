@@ -53,19 +53,20 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, n
     # Optimizacion con modelo de restriccion por potecnia maxima en las lineas.
     m_cons, P_G, Pₗᵢₙₑ, θ, Z, node_lmp =calculoOPF(m_cons, dLinea, dGen, dNodo, nN, nL, bMVA, Calculate_LMP)
 
-    # Se crea unos nuevos datos de lineas de manera que la potencia maxima es ifgual a la demanda total 
-    # del sistema.
-    dLinea_no_cons= copy(dLinea)
-    for ii in 1:nL
-        dLinea_no_cons.L_SMAX[ii] =  round(Int, sum(dNodo.PD))
+    
+    if Calculate_LMP
+        # Se crea unos nuevos datos de lineas de manera que la potencia maxima es ifgual a la demanda total 
+        # del sistema.
+        dLinea_no_cons= copy(dLinea)
+        for ii in 1:nL
+            dLinea_no_cons.L_SMAX[ii] =  round(Int, sum(dNodo.PD))
+        end
+        # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
+        m_no_cons, _, _, _, _, node_mec =calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nN, nL, bMVA, Calculate_LMP)
     end
-    # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
-    m_no_cons, _, _, _, _, node_mec =calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nN, nL, bMVA, Calculate_LMP)
-
+    
     # Guardar solución en DataFrames en caso de encontrar solución óptima en cada modelo.
-    if ((termination_status(m_cons) == OPTIMAL || termination_status(m_cons) == LOCALLY_SOLVED || termination_status(m_cons) == ITERATION_LIMIT) &&
-        (termination_status(m_no_cons) == OPTIMAL || termination_status(m_no_cons) == LOCALLY_SOLVED || termination_status(m_no_cons) == ITERATION_LIMIT))
-
+    if ((termination_status(m_cons) == OPTIMAL || termination_status(m_cons) == LOCALLY_SOLVED || termination_status(m_cons) == ITERATION_LIMIT))
         # solGen recoge los valores de la potencia generada de cada generador de la red
         # Primera columna: nodo
         # Segunda columna: valor lo toma de la variable "P_G" (está en pu y se pasa a MVA) del generador de dicho nodo.

@@ -41,10 +41,14 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     # y en caso negativo, consume potencia de la red
     # Y en la parte derecha es la función del flujo hacia la red
     # Se multiplica a ambos lados por bMVA para asegurar que a la hora de calcular el dual quede con unidades
-    node_power_balance = []
-    for ii in 1:nN
-        local_node_power_balance = @constraint(modelo, (P_G[ii] - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.F_BUS[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.T_BUS[jj] == ii ))*bMVA)
-        push!(node_power_balance, local_node_power_balance)
+    if Calculate_LMP
+        node_power_balance = []
+        for ii in 1:nN
+            local_node_power_balance = @constraint(modelo, (P_G[ii] - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.F_BUS[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.T_BUS[jj] == ii ))*bMVA)
+            push!(node_power_balance, local_node_power_balance)
+        end
+    else
+        local_node_power_balance = @constraint(modelo, sum(P_G[ii] for ii in 1:nN)*bMVA == sum(P_Demand[ii] for ii in 1:nN)*bMVA)
     end
 
     # Restricción de potencia máxima por la línea

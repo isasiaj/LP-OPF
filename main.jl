@@ -22,7 +22,7 @@ while !finPrograma
     limpiarTerminal()
 
     # Se entra en un bucle para que el usuario seleccione el caso que se quiere estudiar
-    casoEstudio, opfTipo, s = selectEstudio()
+    casoEstudio, opfTipo, optionLPM, optionLineSW, s = selectEstudio()
 
     # Limpiza del terminal
     limpiarTerminal()
@@ -43,11 +43,8 @@ while !finPrograma
     # Una vez elegido el caso de estudio se llama a la función correspondiente para realizar el cálculo del problema de optimización
     println("\nGenerando OPF...")
     # En caso de un LP-OPF
-    if opfTipo == "LP-OPF"
-        m, solGen, solFlujos, solAngulos, solLMP = LP_OPF(datos[1], datos[2], datos[3], datos[4], datos[5], datos[6], s, false)
-    else
-        m, solGen, solFlujos, solAngulos, solLMP = LP_OPF(datos[1], datos[2], datos[3], datos[4], datos[5], datos[6], s, true)
-    end
+    m, solGen, solFlujos, solAngulos, solLMP = LP_OPF(datos[1], datos[2], datos[3], datos[4], datos[5], datos[6], s, optionLPM)
+
     # Limpieza del terminal
     limpiarTerminal()
 
