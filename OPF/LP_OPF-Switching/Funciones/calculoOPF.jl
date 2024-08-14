@@ -1,4 +1,4 @@
-function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, nL::Int, bMVA::Int, Calculate_LMP::Bool)
+function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, nL::Int, bMVA::Int, Calculate_LMP::Bool, Calculate_LineSW::Bool)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
@@ -21,7 +21,6 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     # Funciona como un interruptor que conecta y desconecta lineas.
     @variable(modelo, Z[ii in 1:nL], Bin,  start = 1)
 
-
     ########## FUNCIÓN OBJETIVO ##########
     # El objetivo del problema es reducir el coste total que se calcula como ∑cᵢ·Pᵢ
     # Siendo:
@@ -41,41 +40,54 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     # y en caso negativo, consume potencia de la red
     # Y en la parte derecha es la función del flujo hacia la red
     # Se multiplica a ambos lados por bMVA para asegurar que a la hora de calcular el dual quede con unidades
-    if Calculate_LMP
-        node_power_balance = []
-        for ii in 1:nN
-            local_node_power_balance = @constraint(modelo, (P_G[ii] - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.F_BUS[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.T_BUS[jj] == ii ))*bMVA)
-            push!(node_power_balance, local_node_power_balance)
-        end
-    else
-        local_node_power_balance = @constraint(modelo, sum(P_G[ii] for ii in 1:nN)*bMVA == sum(P_Demand[ii] for ii in 1:nN)*bMVA)
+    node_power_balance = []
+    for ii in 1:nN
+        local_node_power_balance = @constraint(modelo, (P_G[ii] - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.F_BUS[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.T_BUS[jj] == ii ))*bMVA)
+        push!(node_power_balance, local_node_power_balance)
     end
 
-    # Restricción de potencia máxima por la línea
-    # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.L_SMAX"
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.L_SMAX[ii] / bMVA) * Z[ii])
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.L_SMAX[ii] / bMVA) * Z[ii])
+    if Calculate_LineSW
+        # Restricción de potencia máxima por la línea
+        # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.L_SMAX"
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.L_SMAX[ii] / bMVA) * Z[ii])
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.L_SMAX[ii] / bMVA) * Z[ii])
+
+        # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
+        # B[ii,jj] susceptancia de la linea que conecta los nodos ii - jj
+        # θ[ii] ángulo del nodo ii
+        # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ) 
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <= B[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] * (θ[dLinea.F_BUS[ii]] - θ[dLinea.T_BUS[ii]] + pi/3*(1 - Z[ii])))
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= B[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] * (θ[dLinea.F_BUS[ii]] - θ[dLinea.T_BUS[ii]] - pi/3*(1 - Z[ii])))
+
+            # Si la linea no está disponible su varible Z será cero, para asegurar que queda fuera del OPF.
+        for ii in 1:nL
+            if  dLinea.status[ii] == 0
+                @constraint(modelo, Z[ii] == 0)
+            end
+        end
+    else 
+        # Restricción de potencia máxima por la línea
+        # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.L_SMAX"
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.L_SMAX[ii] / bMVA) * dLinea.status[ii])
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.L_SMAX[ii] / bMVA) * dLinea.status[ii])
+
+        # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
+        # B[ii,jj] susceptancia de la linea que conecta los nodos ii - jj
+        # θ[ii] ángulo del nodo ii
+        # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ) 
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] == B[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] * (θ[dLinea.F_BUS[ii]] - θ[dLinea.T_BUS[ii]]))
+        
+        # Si no se calcula optimizacion de la topografica de la red las lineas conectadas se obtendrn de lo datos de entrada.
+        @constraint(modelo, [ii in 1:nL], Z[ii] == dLinea.status[ii])
+    end
 
     # Restricción de potencia mínima y máxima de los generadores
     @constraint(modelo, [ii in 1:nN], P_Gen_lb[ii] * Gen_Status[ii] <= P_G[ii] <= P_Gen_ub[ii] * Gen_Status[ii])
-
-    # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
-    # B[ii,jj] susceptancia de la linea que conecta los nodos ii - jj
-    # θ[ii] ángulo del nodo ii
-    # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ) 
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <= B[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] * (θ[dLinea.T_BUS[ii]] - θ[dLinea.F_BUS[ii]] + pi/3*(1 - Z[ii])))
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= B[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] * (θ[dLinea.T_BUS[ii]] - θ[dLinea.F_BUS[ii]] - pi/3*(1 - Z[ii])))
 
     # Se selecciona el nodo 1 como nodo de refenrecia
     # Necesario en caso de HiGHS para evitar un bucle infinito al resolver la optimización
     @constraint(modelo, θ[1] == 0)
 
-    # Si la linea no está disponible su varible Z será cero, para asegurar que queda fuera del OPF.
-    for ii in 1:nL
-        if  dLinea.status[ii] == 0
-            @constraint(modelo, Z[ii] == 0)
-        end
-    end
 
     ########## RESOLUCIÓN ##########
     optimize!(modelo) # Optimización

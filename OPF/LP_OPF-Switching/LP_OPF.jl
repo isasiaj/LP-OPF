@@ -7,7 +7,7 @@ include("./Funciones/gestorDatosLP.jl")
 include("./Funciones/matrizSusceptancia.jl")
 include("./Funciones/calculoOPF.jl")
 
-function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, nL::Int, bMVA::Int, solver::String, Calculate_LMP:: Bool) 
+function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, nL::Int, bMVA::Int, solver::String, Calculate_LMP::Bool, Calculate_LineSW::Bool) 
 
     # dLinea:   Datos de las líneas
     # dGen:     Datos de los generadores
@@ -51,7 +51,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, n
     end
 
     # Optimizacion con modelo de restriccion por potecnia maxima en las lineas.
-    m_cons, P_G, Pₗᵢₙₑ, θ, Z, node_lmp =calculoOPF(m_cons, dLinea, dGen, dNodo, nN, nL, bMVA, Calculate_LMP)
+    m_cons, P_G, Pₗᵢₙₑ, θ, Z, node_lmp =calculoOPF(m_cons, dLinea, dGen, dNodo, nN, nL, bMVA, Calculate_LMP, Calculate_LineSW)
 
     
     if Calculate_LMP
@@ -62,7 +62,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, n
             dLinea_no_cons.L_SMAX[ii] =  round(Int, sum(dNodo.PD))
         end
         # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
-        m_no_cons, _, _, _, _, node_mec =calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nN, nL, bMVA, Calculate_LMP)
+        m_no_cons, _, _, _, _, node_mec =calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nN, nL, bMVA, Calculate_LMP, Calculate_LineSW)
     end
     
     # Guardar solución en DataFrames en caso de encontrar solución óptima en cada modelo.
@@ -86,14 +86,14 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, n
                                       :T_BUS => (dLinea.T_BUS[ii]), 
                                       :FLUJO => round(value(Pₗᵢₙₑ[ii]) * bMVA, digits = 2), 
                                       :LINE_CAPACITY => round((value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea.L_SMAX[ii], digits = 3),
-                                      :SWITCH => round(value(Z[ii]), digits = 3)))
+                                      :SWITCH => value(Z[ii])))
 
             else
                 push!(solFlujos, Dict(:F_BUS => (dLinea.T_BUS[ii]), 
                                       :T_BUS => (dLinea.F_BUS[ii]), 
                                       :FLUJO => round(-value(Pₗᵢₙₑ[ii]) * bMVA, digits = 2), 
                                       :LINE_CAPACITY => round((-value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea.L_SMAX[ii], digits = 3),
-                                      :SWITCH => round(value(Z[ii]), digits = 3)))
+                                      :SWITCH => value(Z[ii])))
             end
         end
 
