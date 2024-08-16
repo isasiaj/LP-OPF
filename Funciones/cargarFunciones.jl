@@ -9,4 +9,4 @@ include("./extraerDatos.jl")            # EXtrae los datos del caso seleccionado
 include("./selectEstudio.jl")           # Elección del caso que se quiere estudiar
 include("./gestorResultados.jl")        # Gestiona el resultado obtenido de la optimización
 
-include("../OPF/LP_OPF-Switching/LP_OPF.jl")      # Función del Linear Programming - Optimal Power Flow
+include("../OPF/LP_OPF/LP_OPF.jl")      # Función del Linear Programming - Optimal Power Flow
