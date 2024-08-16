@@ -1,4 +1,4 @@
-function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nN::Int, nL::Int, bMVA::Int, Calculate_LMP::Bool, Calculate_LineSW::Bool)
+function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, Calculate_LMP::Bool, Calculate_LineSW::Bool)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
@@ -7,7 +7,7 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     
     ########## VARIABLES ##########
     # Se asigna una variable de generación para todos los nodos y se le asigna un valor inicial de 0 
-    @variable(modelo, P_G[ii in 1:nN], start = 0)
+    @variable(modelo, P_G[ii in 1:nG], start = 0)
 
     # Se considera que el módulo del voltaje en todos los nodos es la unidad y es invariante, V = 1
     # Lo único que varía es el ángulo
@@ -26,7 +26,7 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     # Siendo:
     #   cᵢ el coste del Generador en el nodo i
     #   Pᵢ la potencia generada del Generador en el nodo i
-    Total_cost = sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nN)
+    Total_cost = sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nG)
     @objective(modelo, Min, Total_cost)
 
 
@@ -42,7 +42,7 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     # Se multiplica a ambos lados por bMVA para asegurar que a la hora de calcular el dual quede con unidades
     node_power_balance = []
     for ii in 1:nN
-        local_node_power_balance = @constraint(modelo, (P_G[ii] - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.F_BUS[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.T_BUS[jj] == ii ))*bMVA)
+        local_node_power_balance = @constraint(modelo, ( sum(P_G[jj] for jj in 1:nG if dGen.BUS[jj] == ii ) - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.F_BUS[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.T_BUS[jj] == ii ))*bMVA)
         push!(node_power_balance, local_node_power_balance)
     end
 
@@ -82,7 +82,7 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     end
 
     # Restricción de potencia mínima y máxima de los generadores
-    @constraint(modelo, [ii in 1:nN], P_Gen_lb[ii] * Gen_Status[ii] <= P_G[ii] <= P_Gen_ub[ii] * Gen_Status[ii])
+    @constraint(modelo, [ii in 1:nG], P_Gen_lb[ii] * Gen_Status[ii] <= P_G[ii] <= P_Gen_ub[ii] * Gen_Status[ii])
 
     # Se selecciona el nodo 1 como nodo de refenrecia
     # Necesario en caso de HiGHS para evitar un bucle infinito al resolver la optimización

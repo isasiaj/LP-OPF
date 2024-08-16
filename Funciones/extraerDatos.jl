@@ -8,11 +8,14 @@ function extraerDatos(c::String)
     # Datos de la demanda
     datosNodo = CSV.read("Casos/$c/datosNodos.csv", DataFrame)
 
-    # Número de nodos
-    nNodos = maximum([datosLinea.F_BUS; datosLinea.T_BUS])
-
     # Número de líneas
     nLineas = size(datosLinea, 1)
+
+    # Número de líneas
+    nGenerador = size(datosGenerador, 1)
+
+    # Número de nodos
+    nNodos = maximum([datosLinea.F_BUS; datosLinea.T_BUS])
 
     # Potencia base
     bMVA = 100
@@ -27,5 +30,5 @@ function extraerDatos(c::String)
     end
 
     # Devuelve todos los DataFrames y variables generadas
-    return(datosLinea, datosGenerador, datosNodo, nNodos, nLineas, bMVA, ruta)
+    return(datosLinea, datosGenerador, datosNodo, nLineas, nGenerador, nNodos, bMVA, ruta)
 end

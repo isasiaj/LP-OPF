@@ -43,14 +43,14 @@ while !finPrograma
     # Una vez elegido el caso de estudio se llama a la función correspondiente para realizar el cálculo del problema de optimización
     println("\nGenerando OPF...")
     # En caso de un LP-OPF
-    m, solGen, solFlujos, solAngulos, solLMP = LP_OPF(datos[1], datos[2], datos[3], datos[4], datos[5], datos[6], s, optionLPM, optionLineSW)
+    m, solGen, solFlujos, solAngulos, solLMP = LP_OPF(datos[1], datos[2], datos[3], datos[4], datos[5], datos[6], datos[7], s, optionLPM, optionLineSW)
 
     # Limpieza del terminal
     limpiarTerminal()
 
     # Gensión de los resultados de optimización
     println("Problema resuelto")
-    gestorResultados(m, solGen, solFlujos, solAngulos, solLMP, datos[7], opfTipo, s)
+    gestorResultados(m, solGen, solFlujos, solAngulos, solLMP, datos[8], opfTipo, s)
 
     # Preguntar al usuario si quiere continuar en el bucle para estudiar otro caso
     println("\nPulsa la tecla ENTER para continuar o cualquier otra entrada para salir.")
