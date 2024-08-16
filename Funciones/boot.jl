@@ -17,20 +17,20 @@ function boot()
 
     println("Test1 - Completado")
     println("Test 2...")
-    LP_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "HiGHS",  false, false)
+    LP_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "HiGHS", false, false)
 
     limpiarTerminal()
 
-    # println("Test 1 - Completado")
-    # println("Test 2 - Completado")
-    # println("Test 3...")
-    # LP_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "Ipopt")
+    println("Test 1 - Completado")
+    println("Test 2 - Completado")
+    println("Test 3...")
+    LP_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "Ipopt", false, false)
 
-    # limpiarTerminal()
+    limpiarTerminal()
 
-    # println("Test 1 - Completado")
-    # println("Test 2 - Completado")
-    # println("Test 3 - Completado")
+    println("Test 1 - Completado")
+    println("Test 2 - Completado")
+    println("Test 3 - Completado")
     sleep(1)
     
 end

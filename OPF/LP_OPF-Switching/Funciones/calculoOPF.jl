@@ -17,10 +17,6 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     # Pᵢⱼ = Bᵢⱼ · (θᵢ - θⱼ)
     @variable(modelo, Pₗᵢₙₑ[ii in 1:nL], start = 0)
 
-    # Variable binaria que controla si una linea está o no activa.
-    # Funciona como un interruptor que conecta y desconecta lineas.
-    @variable(modelo, Z[ii in 1:nL], Bin,  start = 1)
-
     ########## FUNCIÓN OBJETIVO ##########
     # El objetivo del problema es reducir el coste total que se calcula como ∑cᵢ·Pᵢ
     # Siendo:
@@ -47,6 +43,11 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     end
 
     if Calculate_LineSW
+        # Variable binaria que controla si una linea está o no activa.
+        # Funciona como un interruptor que conecta y desconecta lineas.
+        @variable(modelo, Z[ii in 1:nL], Bin,  start = 1)
+
+
         # Restricción de potencia máxima por la línea
         # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.L_SMAX"
         @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.L_SMAX[ii] / bMVA) * Z[ii])
@@ -65,7 +66,11 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
                 @constraint(modelo, Z[ii] == 0)
             end
         end
-    else 
+    else
+        # Variable binaria que controla si una linea está o no activa.
+        # Funciona como un interruptor que conecta y desconecta lineas.
+        @variable(modelo, Z[ii in 1:nL],  start = 1)
+
         # Restricción de potencia máxima por la línea
         # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.L_SMAX"
         @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.L_SMAX[ii] / bMVA) * dLinea.status[ii])
