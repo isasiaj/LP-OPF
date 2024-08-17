@@ -8,27 +8,48 @@ function selectEstudio()
         casoEst = elegirOpcion(listaCasos, "caso")
 
         # Lista de las opciones del tipo de OPF que se puede usar
-        listaOPF = ["LP-OPF"]
+        listaOPF = ["LP-OPF", "AC-OPF"]
         opfTip = elegirOpcion(listaOPF, "tipo de OPF")
-        # Calcular o no precios marginales locales
-        optionLPM = elegirSiNo("LPM")
-        # Optimizar o no la topología de la red
-        optionLineSW = elegirSiNo("Optimizar topologia")
 
-        # Se pregunta el solver que se quiere emplear
-        listaACSolvers = ["Gurobi", "HiGHS", "Ipopt"]
-        s = elegirOpcion(listaACSolvers, "solver")
+        if opfTip ==  "LP-OPF"
+            # Calcular o no precios marginales locales
+            optionLPM = elegirSiNo("LPM")
+            # Optimizar o no la topología de la red
+            optionLineSW = elegirSiNo("Optimizar topologia")
+        end
+
+        # Según el tipo de OPF elegido, se pregunta el solver que se quiere emplear
+        if opfTip == "LP-OPF"
+            listaACSolvers = ["Gurobi", "HiGHS", "Ipopt"]
+            s = elegirOpcion(listaACSolvers, "solver")
+
+        elseif opfTip == "AC-OPF"
+            listaACSolvers = ["Ipopt", "Couenne"]
+            s = elegirOpcion(listaACSolvers, "solver")
+            
+        end
 
         # Limpieza del terminal
         limpiarTerminal()
 
-        # Imprimir en terminal el resumen de todos las opciones elegidas
-        println("Resumen:")
-        println("Caso de estudio ----- ", casoEst)
-        println("Tipo de OPF --------- ", opfTip)
-        println("Calculo LPM --------- ", string(optionLPM))
-        println("Optimizar topologia - ", string(optionLineSW))
-        println("Optimizador --------- ", s)
+
+        # Según el tipo de OPF elegido
+        if opfTip == "LP-OPF"
+            # Imprimir en terminal el resumen de todos las opciones elegidas
+            println("Resumen:")
+            println("Caso de estudio ----- ", casoEst)
+            println("Tipo de OPF --------- ", opfTip)
+            println("Calculo LPM --------- ", string(optionLPM))
+            println("Optimizar topologia - ", string(optionLineSW))
+            println("Optimizador --------- ", s)
+
+        elseif opfTip == "AC-OPF"
+            # Imprimir en terminal el resumen de todos las opciones elegidas
+            println("Resumen:")
+            println("Caso de estudio ----- ", casoEst)
+            println("Tipo de OPF --------- ", opfTip)
+            println("Optimizador --------- ", s)
+        end
 
         # Pregunta al usuario si las opciones listados anteriormente concuerdan con lo que quiere resolver, 
         # en caso negativo puede volver a seleccionar las opciones 
@@ -37,14 +58,17 @@ function selectEstudio()
         
         # Si la respuesta es un "ENTER" procede a continuar y devolver dichas opciones
         if respuesta == ""
-            return casoEst, opfTip, optionLPM, optionLineSW, s
-            break
 
-        # En caso de introducir cualquier entrada, procede a cancelar y volver a seleccionar las opciones
-        else
-            continue
 
+            # Según el tipo de OPF elegido
+            if opfTip == "LP-OPF"
+                return casoEst, opfTip, optionLPM, optionLineSW, s
+
+            elseif opfTip == "AC-OPF"
+                return casoEst, opfTip, false, false, s
+            end
         end
+        # En caso de introducir cualquier entrada, procede a cancelar y volver a seleccionar las opciones¡
     
     end
 

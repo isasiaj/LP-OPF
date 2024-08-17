@@ -13,7 +13,7 @@ Logging.disable_logging(Logging.Error)
 # principalmente para cargar los solvers y resolver con mayor rapidez el caso pedido por el usuario
 boot()
 
-# Cariable para salir del bucle
+# Variable para salir del bucle
 finPrograma = false
 # En caso de que no sea fin de programa
 while !finPrograma
