@@ -59,7 +59,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         # del sistema.
         dLinea_no_cons= copy(dLinea)
         for ii in 1:nL
-            dLinea_no_cons.L_SMAX[ii] =  round(Int, sum(dNodo.PD))
+            dLinea_no_cons.rateA[ii] =  round(Int, sum(dNodo.Pd))
         end
         # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
         m_no_cons, _, _, _, _, node_mec =calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA, Calculate_LMP, Calculate_LineSW)
@@ -70,29 +70,29 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         # solGen recoge los valores de la potencia generada de cada generador de la red
         # Primera columna: nodo
         # Segunda columna: valor lo toma de la variable "P_G" (está en pu y se pasa a MVA) del generador de dicho nodo.
-        solGen = DataFrames.DataFrame(BUS = (dGen.BUS), PGEN = (value.(P_G) * bMVA))
+        solGen = DataFrames.DataFrame(bus = (dGen.bus), PGEN = (value.(P_G) * bMVA))
 
         # solFlujos recoge el flujo de potencia que pasa por todas las líneas
         # Primera columna: nodo del que sale
         # Segunda columna: nodo al que llega
         # Tercera columna: valor del flujo de potencia en la línea
         # Cuarta  columna: valor en tanto por uno de la satuaracion de la linea:  potencia en la línea / potencia maxima en la linea
-        solFlujos = DataFrames.DataFrame(F_BUS = Int[], T_BUS = Int[], FLUJO = Float64[], LINE_CAPACITY = Float64[], SWITCH = Float64[])
+        solFlujos = DataFrames.DataFrame(fbus = Int[], tbus = Int[], FLUJO = Float64[], LINE_CAPACITY = Float64[], SWITCH = Float64[])
 
         for ii in 1:nL
-            # Se crean dos casos para que siempre la potencia de positiva, invirtiendo nodos F_BUS y T_BUS
+            # Se crean dos casos para que siempre la potencia de positiva, invirtiendo nodos fbus y tbus
             if value(Pₗᵢₙₑ[ii] ) >= 0
-                push!(solFlujos, Dict(:F_BUS => (dLinea.F_BUS[ii]),
-                                      :T_BUS => (dLinea.T_BUS[ii]), 
+                push!(solFlujos, Dict(:fbus => (dLinea.fbus[ii]),
+                                      :tbus => (dLinea.tbus[ii]), 
                                       :FLUJO => round(value(Pₗᵢₙₑ[ii]) * bMVA, digits = 2), 
-                                      :LINE_CAPACITY => round((value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea.L_SMAX[ii], digits = 3),
+                                      :LINE_CAPACITY => round((value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea.rateA[ii], digits = 3),
                                       :SWITCH => value(Z[ii])))
 
             else
-                push!(solFlujos, Dict(:F_BUS => (dLinea.T_BUS[ii]), 
-                                      :T_BUS => (dLinea.F_BUS[ii]), 
+                push!(solFlujos, Dict(:fbus => (dLinea.tbus[ii]), 
+                                      :tbus => (dLinea.fbus[ii]), 
                                       :FLUJO => round(-value(Pₗᵢₙₑ[ii]) * bMVA, digits = 2), 
-                                      :LINE_CAPACITY => round((-value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea.L_SMAX[ii], digits = 3),
+                                      :LINE_CAPACITY => round((-value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea.rateA[ii], digits = 3),
                                       :SWITCH => value(Z[ii])))
             end
         end
@@ -100,9 +100,9 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         # solAngulos recoge el desfase de la tensión en los nodos
         # Primera columna: nodo
         # Segunda columna: valor del desfase en grados
-        solAngulos = DataFrames.DataFrame(BUS = Int[], GRADOS = Float64[])
+        solAngulos = DataFrames.DataFrame(bus_i = Int[], GRADOS = Float64[])
         for ii in 1:nN
-            push!(solAngulos, Dict(:BUS => ii, :GRADOS => round(rad2deg(value(θ[ii])), digits = 2)))
+            push!(solAngulos, Dict(:bus_i => ii, :GRADOS => round(rad2deg(value(θ[ii])), digits = 2)))
         end
 
         # solLMP recoge los precios marginales en cada nodo
@@ -110,11 +110,11 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         # Segunda columna: Precio marginal local en cada de la red
         # Tercera columna: Componente de energia, este es igual en todos los nodos al no tener en cuenta saturacion en las lineas
         # Cuarta  columna: componente de congestion del precio marginal, como afecta la congestion en las lineas sobre el precio marginal en ese nodo.
-        solLMP = DataFrames.DataFrame(BUS = Int[], LMP = Float64[], MEC = Float64[], MCC = Float64[])
+        solLMP = DataFrames.DataFrame(bus_i = Int[], LMP = Float64[], MEC = Float64[], MCC = Float64[])
         if Calculate_LMP
             for ii in 1:nN
                 # Marginal price of energy, €/MWh
-                push!(solLMP, Dict(:BUS => ii, 
+                push!(solLMP, Dict(:bus_i => ii, 
                                 :LMP => round(node_lmp[ii], digits = 3),
                                 :MEC => round(node_mec[ii], digits = 3),
                                 :MCC => round(node_lmp[ii] - node_mec[ii], digits = 3)))

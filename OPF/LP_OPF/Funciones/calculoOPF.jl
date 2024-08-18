@@ -38,7 +38,7 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     # Se multiplica a ambos lados por bMVA para asegurar que a la hora de calcular el dual quede con unidades
     node_power_balance = []
     for ii in 1:nN
-        local_node_power_balance = @constraint(modelo, ( sum(P_G[jj] for jj in 1:nG if dGen.BUS[jj] == ii ) - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.F_BUS[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.T_BUS[jj] == ii ))*bMVA)
+        local_node_power_balance = @constraint(modelo, ( sum(P_G[jj] for jj in 1:nG if dGen.bus[jj] == ii ) - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.fbus[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.tbus[jj] == ii ))*bMVA)
         push!(node_power_balance, local_node_power_balance)
     end
 
@@ -49,16 +49,16 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
 
 
         # Restricción de potencia máxima por la línea
-        # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.L_SMAX"
-        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.L_SMAX[ii] / bMVA) * Z[ii])
-        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.L_SMAX[ii] / bMVA) * Z[ii])
+        # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA) * Z[ii])
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA) * Z[ii])
 
         # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
         # B[ii,jj] susceptancia de la linea que conecta los nodos ii - jj
         # θ[ii] ángulo del nodo ii
         # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ) 
-        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <= B[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] * (θ[dLinea.F_BUS[ii]] - θ[dLinea.T_BUS[ii]] + pi/3*(1 - Z[ii])))
-        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= B[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] * (θ[dLinea.F_BUS[ii]] - θ[dLinea.T_BUS[ii]] - pi/3*(1 - Z[ii])))
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <= B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] + pi/3*(1 - Z[ii])))
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] - pi/3*(1 - Z[ii])))
 
             # Si la linea no está disponible su varible Z será cero, para asegurar que queda fuera del OPF.
         for ii in 1:nL
@@ -72,15 +72,15 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
         @variable(modelo, Z[ii in 1:nL],  start = 1)
 
         # Restricción de potencia máxima por la línea
-        # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.L_SMAX"
-        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.L_SMAX[ii] / bMVA) * dLinea.status[ii])
-        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.L_SMAX[ii] / bMVA) * dLinea.status[ii])
+        # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA) * dLinea.status[ii])
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA) * dLinea.status[ii])
 
         # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
         # B[ii,jj] susceptancia de la linea que conecta los nodos ii - jj
         # θ[ii] ángulo del nodo ii
         # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ) 
-        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] == B[dLinea.F_BUS[ii], dLinea.T_BUS[ii]] * (θ[dLinea.F_BUS[ii]] - θ[dLinea.T_BUS[ii]]))
+        @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] == B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]))
         
         # Si no se calcula optimizacion de la topografica de la red las lineas conectadas se obtendrn de lo datos de entrada.
         @constraint(modelo, [ii in 1:nL], Z[ii] == dLinea.status[ii])

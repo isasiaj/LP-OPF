@@ -15,7 +15,7 @@ function extraerDatos(c::String)
     nGenerador = size(datosGenerador, 1)
 
     # Número de nodos
-    nNodos = maximum([datosLinea.F_BUS; datosLinea.T_BUS])
+    nNodos = maximum([datosLinea.fbus; datosLinea.tbus])
 
     # Potencia base
     bMVA = 100

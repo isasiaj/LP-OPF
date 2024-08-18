@@ -9,7 +9,7 @@ def read_graph_from_csv(nodes_file, edges_file):
         # Leer datos de los nodos desde el CSV
         nodes_df = pd.read_csv(nodes_file, sep=';')
         # Añadir nodos con valores
-        nodes_with_values = {int(row['BUS']): {"LMP": row['LMP']} for idx, row in nodes_df.iterrows()}
+        nodes_with_values = {int(row['bus_i']): {"LMP": row['LMP']} for idx, row in nodes_df.iterrows()}
         for node, data in nodes_with_values.items():
             G.add_node(node, **data)
     except Exception as e:
@@ -20,7 +20,7 @@ def read_graph_from_csv(nodes_file, edges_file):
         # Leer datos de las aristas desde el CSV
         edges_df = pd.read_csv(edges_file, sep=';')
         # Añadir aristas con valores (pesos)
-        edges = [(int(row['F_BUS']), int(row['T_BUS']), row['LINE_CAPACITY']) for idx, row in edges_df.iterrows()]
+        edges = [(int(row['fbus']), int(row['tbus']), row['LINE_CAPACITY']) for idx, row in edges_df.iterrows()]
         G.add_weighted_edges_from(edges)
     except Exception as e:
         print(f"Error leyendo aristas: {e}")
