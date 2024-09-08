@@ -31,7 +31,7 @@ function boot()
     println("Test 2 - Completado")
     println("Test 3 - Completado")
     println("Test 4...")
-    AC_OPF(test_linea, test_generador, test_nodos, 2, 1, 1, "Ipopt")
+    AC_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "Ipopt", false)
 
     limpiarTerminal()
 
@@ -40,7 +40,7 @@ function boot()
     println("Test 3 - Completado")
     println("Test 4 - Completado")
     println("Test 5...")
-    AC_OPF(test_linea, test_generador, test_nodos, 2, 1, 1, "Couenne")
+    AC_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "Couenne", false)
 
     limpiarTerminal()
     

@@ -11,9 +11,10 @@ function selectEstudio()
         listaOPF = ["LP-OPF", "AC-OPF"]
         opfTip = elegirOpcion(listaOPF, "tipo de OPF")
 
+        # Calcular o no precios marginales locales
+        optionLPM = elegirSiNo("LPM")
+
         if opfTip ==  "LP-OPF"
-            # Calcular o no precios marginales locales
-            optionLPM = elegirSiNo("LPM")
             # Optimizar o no la topología de la red
             optionLineSW = elegirSiNo("Optimizar topologia")
         end
