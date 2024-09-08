@@ -2,7 +2,7 @@ include("./Funciones/gestorDatosAC.jl")
 include("./Funciones/matrizAdmitancia.jl")
 
 
-function AC_OPF(dLinea::DataFrame, dGen::DataFrame, dNodos::DataFrame, nN::Int, nL::Int, bMVA::Int, solver::String)
+function AC_OPF(dLinea::DataFrame, dGen::DataFrame, dNodos::DataFrame, nL::Int, nG::Int, nN::Int, bMVA::Int, solver::String, Calculate_LMP::Bool)
 
     # dLinea    Datos de las líneas
     # dGen      Datos de los generadores
@@ -78,7 +78,11 @@ function AC_OPF(dLinea::DataFrame, dGen::DataFrame, dNodos::DataFrame, nN::Int, 
     # en caso de ser positivo significa que es un nodo que suministra potencia a la red 
     # y en caso negativo, consume potencia de la red
     # Y en la parte derecha es la función del flujo de potencia en la red
-    @constraint(m, [i in 1:nN], P_G[i] - P_Demand[i] == V[i] * sum(V[j] * (real(Y[i, j]) * cos(θ[i] - θ[j]) + imag(Y[i, j]) * sin(θ[i] - θ[j])) for j in 1:nN) + Gs[i])
+    node_power_balance = []
+    for i in 1:nN
+        local_node_power_balance = @constraint(m, P_G[i] - P_Demand[i] == V[i] * sum(V[j] * (real(Y[i, j]) * cos(θ[i] - θ[j]) + imag(Y[i, j]) * sin(θ[i] - θ[j])) for j in 1:nN) + Gs[i])
+        push!(node_power_balance, local_node_power_balance)
+    end
     @constraint(m, [i in 1:nN], Q_G[i] - Q_Demand[i] == V[i] * sum(V[j] * (real(Y[i, j]) * sin(θ[i] - θ[j]) - imag(Y[i, j]) * cos(θ[i] - θ[j])) for j in 1:nN) - Bs[i])
 
 
@@ -113,6 +117,19 @@ function AC_OPF(dLinea::DataFrame, dGen::DataFrame, dNodos::DataFrame, nN::Int, 
     ########## RESOLUCIÓN ##########
     optimize!(m)    # Optimización
 
+    ########### DUAL LMP ###########
+    # Se calcula el dual de cada nodo repecto ala restriccion del balance de potencia.
+    # Dado que la funcion de coste es el euros el resultado quedaria en:  €/MWh
+
+    LMPs = []
+    if Calculate_LMP
+        for ii in 1:nN
+            push!(LMPs, dual(node_power_balance[ii]))
+        end
+    else
+        LMPs = zeros(nN)
+    end
+
     # Guardar solución en DataFrames en caso de encontrar solución óptima (global o local) o se ha llegado al máximo de iteraciones en caso de Ipopt
     if termination_status(m) == OPTIMAL || termination_status(m) == LOCALLY_SOLVED || termination_status(m) == ITERATION_LIMIT
 
@@ -120,7 +137,7 @@ function AC_OPF(dLinea::DataFrame, dGen::DataFrame, dNodos::DataFrame, nN::Int, 
         # Primera columna: nodo
         # Segunda columna: valor real que toma de la variable "S_Gen" (está en pu y se pasa a MVA) del generador de dicho nodo
         # Tercera columna: valor imaginario que toma de la variable "S_Gen" (está en pu y se pasa a MVA) del generador de dicho nodo
-        solGen = DataFrames.DataFrame(bus = (dGen.bus), potPGen = (value.(P_G[dGen.bus]) * bMVA), potQGen = (value.(Q_G[dGen.bus]) * bMVA))
+        solGen = DataFrames.DataFrame(bus = (dGen.bus), PGen = (value.(P_G[dGen.bus]) * bMVA), QGen = (value.(Q_G[dGen.bus]) * bMVA))
 
         # solFlujos recoge el flujo de potencia que pasa por todas las líneas
         # Primera columna: nodo del que sale
@@ -139,15 +156,29 @@ function AC_OPF(dLinea::DataFrame, dGen::DataFrame, dNodos::DataFrame, nN::Int, 
         # Primera columna: nodo
         # Segunda columna: valor del desfase en grados
         solAngulos = DataFrames.DataFrame(bus = Int[], anguloGrados = Float64[])
-        for i in 1:nN
-            push!(solAngulos, Dict(:bus => i, :anguloGrados => round(rad2deg(value(θ[i])), digits = 2)))
+        for ii in 1:nN
+            if ii in dNodos.bus_i
+                push!(solAngulos, Dict(:bus => ii, :anguloGrados => round(rad2deg(value(θ[ii])), digits = 2)))
+            end
         end
+
+        solLMP = DataFrames.DataFrame(bus_i = Int[], LMP = Float64[], MEC = Float64[], MCC = Float64[])
+        for ii in 1:nN
+            if ii in dNodos.bus_i
+                # Marginal price of energy, €/MWh
+                push!(solLMP, Dict(:bus_i => ii, 
+                                :LMP => round(LMPs[ii], digits = 3),
+                                :MEC => 0.0,
+                                :MCC => 0.0))
+            end
+        end
+
         # Devuelve como solución el modelo "m" y los DataFrames generados de generación, flujos y ángulos
-        return m, solGen, solFlujos, solAngulos
+        return m, solGen, solFlujos, solAngulos, solLMP
 
     # En caso de que no se encuentre solución a la optimización, se mostrará en pantalla el error
     else
-        return m, 0, 0, 0
+        return m, 0, 0, 0, 0
     end
 
 end

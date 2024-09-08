@@ -43,7 +43,16 @@ while !finPrograma
     # Una vez elegido el caso de estudio se llama a la función correspondiente para realizar el cálculo del problema de optimización
     println("\nGenerando OPF...")
     # En caso de un LP-OPF
-    m, solGen, solFlujos, solAngulos, solLMP = LP_OPF(datos[1], datos[2], datos[3], datos[4], datos[5], datos[6], datos[7], s, optionLPM, optionLineSW)
+
+    if opfTipo == "LP-OPF"
+        # En caso de un LP-OPF
+        m, solGen, solFlujos, solAngulos, solLMP = LP_OPF(datos[1], datos[2], datos[3], datos[4], datos[5], datos[6], datos[7], s, optionLPM, optionLineSW)
+
+
+    elseif opfTipo == "AC-OPF"
+        # En caso de un AC-OPF
+        m, solGen, solFlujos, solAngulos, solLMP = AC_OPF(datos[1], datos[2], datos[3], datos[4], datos[5], datos[6], datos[7], s, optionLPM)  
+    end
 
     # Limpieza del terminal
     limpiarTerminal()
