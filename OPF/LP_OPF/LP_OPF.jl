@@ -9,13 +9,16 @@ include("./Funciones/calculoOPF.jl")
 
 function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int, nN::Int, bMVA::Int, solver::String, Calculate_LMP::Bool, Calculate_LineSW::Bool) 
 
-    # dLinea:   Datos de las líneas
-    # dGen:     Datos de los generadores
-    # dNodo:    Datos de la demanda
-    # nN:       Número de nodos
-    # nL:       Número de líneas
-    # bMVA:     Potencia base
-    # solver:   Solver a utilizar
+    # dLinea:           Datos de las líneas
+    # dGen:             Datos de los generadores
+    # dNodo:            Datos de la demanda
+    # nL:               Número de líneas
+    # nG:               Número de generadores
+    # nN:               Número de nodos
+    # bMVA:             Potencia base
+    # solver:           Solver a utilizar
+    # Calculate_LMP:    Varible binaria, el usuario quiere calcular precios marginales locales
+    # Calculate_LineSW: Varible binaria, el usuario quiere optimizar modifcando la topologia de la red
     
 
     ########## INICIALIZAR MODELO ##########
@@ -25,21 +28,21 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
     # del precio marginal sin el coste por congestion en las lineas
 
     if solver == "Gurobi"   # en este caso, el solver Gurobi
-        m_cons = Model(Gurobi.Optimizer)
+        m_cons    = Model(Gurobi.Optimizer)
         m_no_cons = Model(Gurobi.Optimizer)
         # Se deshabilita las salidas por defecto que tiene el optimizador
         set_silent(m_cons)
         set_silent(m_no_cons)
 
     elseif solver == "HiGHS"    # Para el solver HiGHS
-        m_cons = Model(HiGHS.Optimizer)
+        m_cons    = Model(HiGHS.Optimizer)
         m_no_cons = Model(HiGHS.Optimizer)
         # Se deshabilita las salidas por defecto que tiene el optimizador
         set_silent(m_cons)
         set_silent(m_no_cons)
 
     elseif solver == "Ipopt"    # Para el solver Ipopt
-        m_cons = Model(Ipopt.Optimizer)        
+        m_cons    = Model(Ipopt.Optimizer)        
         m_no_cons = Model(Ipopt.Optimizer)
         # Se deshabilita las salidas por defecto que tiene el optimizador
         set_silent(m_cons)
