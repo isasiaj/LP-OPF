@@ -6,6 +6,8 @@
 include("./Funciones/gestorDatosLP.jl")
 include("./Funciones/matrizSusceptancia.jl")
 include("./Funciones/calculoOPF.jl")
+include("./Funciones/calculoOPF_OTS_BinVar.jl")
+include("./Funciones/IncializarModelo.jl")
 
 function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int, nN::Int, bMVA::Int, solver::String, Calculate_LineSW::Bool) 
 
@@ -25,44 +27,50 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
     # y el modelo "m_no_cons" con la función.
     # El modelo "m_no_cons" no se tendra en cuenta la potencia maxima en las lineas, para hacer el calculo 
     # del precio marginal sin el coste por congestion en las lineas
+    m_cons    = IncializarModelo(solver)
+    m_no_cons = IncializarModelo(solver)
 
-    if solver == "Gurobi"   # en este caso, el solver Gurobi
-        m_cons    = Model(Gurobi.Optimizer)
-        m_no_cons = Model(Gurobi.Optimizer)
-        # Se deshabilita las salidas por defecto que tiene el optimizador
-        set_silent(m_cons)
-        set_silent(m_no_cons)
+    if Calculate_LineSW
+        # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
+        _, _, _, _, Z = calculoOPF_VarBin(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
-    elseif solver == "HiGHS"    # Para el solver HiGHS
-        m_cons    = Model(HiGHS.Optimizer)
-        m_no_cons = Model(HiGHS.Optimizer)
-        # Se deshabilita las salidas por defecto que tiene el optimizador
-        set_silent(m_cons)
-        set_silent(m_no_cons)
+        dLinea_final = copy(dLinea)
+        
+        for ii in 1:nL
+            dLinea_final.status[ii] = value(Z[ii])
+        end
+        # Se resetea el modelo para evitar errores
+        m_cons = nothing
+        m_cons = IncializarModelo(solver)
 
-    elseif solver == "Ipopt"    # Para el solver Ipopt
-        m_cons    = Model(Ipopt.Optimizer)        
-        m_no_cons = Model(Ipopt.Optimizer)
-        # Se deshabilita las salidas por defecto que tiene el optimizador
-        set_silent(m_cons)
-        set_silent(m_no_cons)
-    
-    else # En caso de error
-        println("ERROR: Selección de solver en DC-OPF")
-    
+        # Optimizacion con modelo de restriccion por potencia maxima en las lineas.
+        m_cons, P_G, Pₗᵢₙₑ, θ, node_lmp = calculoOPF(m_cons, dLinea_final, dGen, dNodo, nL, nG, nN, bMVA)
+
+        # Se crea unos nuevos datos de lineas de manera que la potencia maxima es igual a la demanda total 
+        # del sistema.
+        dLinea_no_cons= copy(dLinea_final)
+        for ii in 1:nL
+            dLinea_no_cons.rateA[ii] = round(Int, sum(dNodo.Pd))
+        end
+        # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
+        m_no_cons, _, _, _, node_mec = calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
+
+    else
+        # Optimizacion con modelo de restriccion por potencia maxima en las lineas.
+        m_cons, P_G, Pₗᵢₙₑ, θ, node_lmp = calculoOPF(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
+
+        # Se crea unos nuevos datos de lineas de manera que la potencia maxima es igual a la demanda total 
+        # del sistema.
+        dLinea_no_cons= copy(dLinea)
+        for ii in 1:nL
+            dLinea_no_cons.rateA[ii] =  round(Int, sum(dNodo.Pd))
+        end
+        # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
+        m_no_cons, _, _, _, node_mec =calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
+
+        # Se copia varible para que la estructura de salida sea la misma en todos los casos
+        dLinea_final= copy(dLinea)
     end
-
-    # Optimizacion con modelo de restriccion por potecnia maxima en las lineas.
-    m_cons, P_G, Pₗᵢₙₑ, θ, Z, node_lmp =calculoOPF(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, Calculate_LineSW)
-
-    # Se crea unos nuevos datos de lineas de manera que la potencia maxima es igual a la demanda total 
-    # del sistema.
-    dLinea_no_cons= copy(dLinea)
-    for ii in 1:nL
-        dLinea_no_cons.rateA[ii] =  round(Int, sum(dNodo.Pd))
-    end
-    # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
-    m_no_cons, _, _, _, _, node_mec =calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA, Calculate_LineSW)
     
     # Guardar solución en DataFrames en caso de encontrar solución óptima en cada modelo.
     if ((termination_status(m_cons) == OPTIMAL || termination_status(m_cons) == LOCALLY_SOLVED || termination_status(m_cons) == ITERATION_LIMIT))
@@ -76,23 +84,25 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         # Segunda columna: nodo al que llega
         # Tercera columna: valor del flujo de potencia en la línea
         # Cuarta  columna: valor en tanto por uno de la satuaracion de la linea:  potencia en la línea / potencia maxima en la linea
-        solFlujos = DataFrames.DataFrame(fbus = Int[], tbus = Int[], FLUJO = Float64[], LINE_CAPACITY = Float64[], SWITCH = Float64[])
+        solFlujos = DataFrames.DataFrame(fbus = Int[], tbus = Int[], FLUJO = Float64[], LINE_CAPACITY = Float64[], State0 = Float64[], State1 = Float64[])
 
         for ii in 1:nL
             # Se crean dos casos para que siempre la potencia de positiva, invirtiendo nodos fbus y tbus
             if value(Pₗᵢₙₑ[ii] ) >= 0
-                push!(solFlujos, Dict(:fbus => (dLinea.fbus[ii]),
-                                      :tbus => (dLinea.tbus[ii]), 
+                push!(solFlujos, Dict(:fbus => (dLinea_final.fbus[ii]),
+                                      :tbus => (dLinea_final.tbus[ii]), 
                                       :FLUJO => round(value(Pₗᵢₙₑ[ii]) * bMVA, digits = 2), 
-                                      :LINE_CAPACITY => round((value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea.rateA[ii], digits = 3),
-                                      :SWITCH => value(Z[ii])))
+                                      :LINE_CAPACITY => round((value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea_final.rateA[ii], digits = 3),
+                                      :State0 => value(dLinea.status[ii]),
+                                      :State1 => value(dLinea_final.status[ii])))
 
             else
-                push!(solFlujos, Dict(:fbus => (dLinea.tbus[ii]), 
-                                      :tbus => (dLinea.fbus[ii]), 
+                push!(solFlujos, Dict(:fbus => (dLinea_final.tbus[ii]), 
+                                      :tbus => (dLinea_final.fbus[ii]), 
                                       :FLUJO => round(-value(Pₗᵢₙₑ[ii]) * bMVA, digits = 2), 
-                                      :LINE_CAPACITY => round((-value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea.rateA[ii], digits = 3),
-                                      :SWITCH => value(Z[ii])))
+                                      :LINE_CAPACITY => round((-value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea_final.rateA[ii], digits = 3),
+                                      :State0 => value(dLinea.status[ii]),
+                                      :State1 => value(dLinea_final.status[ii])))
             end
         end
 
