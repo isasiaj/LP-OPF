@@ -7,7 +7,7 @@ include("./Funciones/gestorDatosLP.jl")
 include("./Funciones/matrizSusceptancia.jl")
 include("./Funciones/calculoOPF.jl")
 
-function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int, nN::Int, bMVA::Int, solver::String, Calculate_LMP::Bool, Calculate_LineSW::Bool) 
+function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int, nN::Int, bMVA::Int, solver::String, Calculate_LineSW::Bool) 
 
     # dLinea:           Datos de las líneas
     # dGen:             Datos de los generadores
@@ -17,7 +17,6 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
     # nN:               Número de nodos
     # bMVA:             Potencia base
     # solver:           Solver a utilizar
-    # Calculate_LMP:    Varible binaria, el usuario quiere calcular precios marginales locales
     # Calculate_LineSW: Varible binaria, el usuario quiere optimizar modifcando la topologia de la red
     
 
@@ -54,19 +53,16 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
     end
 
     # Optimizacion con modelo de restriccion por potecnia maxima en las lineas.
-    m_cons, P_G, Pₗᵢₙₑ, θ, Z, node_lmp =calculoOPF(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, Calculate_LMP, Calculate_LineSW)
+    m_cons, P_G, Pₗᵢₙₑ, θ, Z, node_lmp =calculoOPF(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, Calculate_LineSW)
 
-    
-    if Calculate_LMP
-        # Se crea unos nuevos datos de lineas de manera que la potencia maxima es ifgual a la demanda total 
-        # del sistema.
-        dLinea_no_cons= copy(dLinea)
-        for ii in 1:nL
-            dLinea_no_cons.rateA[ii] =  round(Int, sum(dNodo.Pd))
-        end
-        # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
-        m_no_cons, _, _, _, _, node_mec =calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA, Calculate_LMP, Calculate_LineSW)
+    # Se crea unos nuevos datos de lineas de manera que la potencia maxima es igual a la demanda total 
+    # del sistema.
+    dLinea_no_cons= copy(dLinea)
+    for ii in 1:nL
+        dLinea_no_cons.rateA[ii] =  round(Int, sum(dNodo.Pd))
     end
+    # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
+    m_no_cons, _, _, _, _, node_mec =calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA, Calculate_LineSW)
     
     # Guardar solución en DataFrames en caso de encontrar solución óptima en cada modelo.
     if ((termination_status(m_cons) == OPTIMAL || termination_status(m_cons) == LOCALLY_SOLVED || termination_status(m_cons) == ITERATION_LIMIT))
@@ -114,14 +110,12 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         # Tercera columna: Componente de energia, este es igual en todos los nodos al no tener en cuenta saturacion en las lineas
         # Cuarta  columna: componente de congestion del precio marginal, como afecta la congestion en las lineas sobre el precio marginal en ese nodo.
         solLMP = DataFrames.DataFrame(bus_i = Int[], LMP = Float64[], MEC = Float64[], MCC = Float64[])
-        if Calculate_LMP
-            for ii in 1:nN
-                # Marginal price of energy, €/MWh
-                push!(solLMP, Dict(:bus_i => ii, 
-                                :LMP => round(node_lmp[ii], digits = 3),
-                                :MEC => round(node_mec[ii], digits = 3),
-                                :MCC => round(node_lmp[ii] - node_mec[ii], digits = 3)))
-            end
+        for ii in 1:nN
+            # Marginal price of energy, €/MWh
+            push!(solLMP, Dict(:bus_i => ii, 
+                            :LMP => round(node_lmp[ii], digits = 3),
+                            :MEC => round(node_mec[ii], digits = 3),
+                            :MCC => round(node_lmp[ii] - node_mec[ii], digits = 3)))
         end
 
         # Devuelve como solución el modelo "m_cons" y los DataFrames generados de generación, flujos y ángulos

@@ -1,4 +1,4 @@
-function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, Calculate_LMP::Bool, Calculate_LineSW::Bool)
+function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, Calculate_LineSW::Bool)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
@@ -101,13 +101,8 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     # Se calcula el dual de cada nodo repecto ala restriccion del balance de potencia.
     # Dado que la funcion de coste es el euros el resultado quedaria en:  €/MWh
     LMPs = []
-    if Calculate_LMP
-        LMPs = []
-        for ii in 1:nN
-            push!(LMPs, dual(node_power_balance[ii]))
-        end
-    else
-        LMPs = zeros(nN)
+    for ii in 1:nN
+        push!(LMPs, dual(node_power_balance[ii]))
     end
 
     return modelo, P_G, Pₗᵢₙₑ, θ, Z, LMPs

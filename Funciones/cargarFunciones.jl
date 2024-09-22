@@ -10,4 +10,3 @@ include("./selectEstudio.jl")           # Elección del caso que se quiere estud
 include("./gestorResultados.jl")        # Gestiona el resultado obtenido de la optimización
 
 include("../OPF/LP_OPF/LP_OPF.jl")      # Función del Linear Programming - Optimal Power Flow
-include("../OPF/AC_OPF/AC_OPF.jl")      # Función del Alternating Current - Optimal Power Flow
