@@ -1,4 +1,4 @@
-function IncializarModelo(solver) 
+function IncializarModelo(solver::String) 
 
     if solver == "Gurobi"   # en este caso, el solver Gurobi
         m    = Model(Gurobi.Optimizer)

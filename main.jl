@@ -22,7 +22,7 @@ while !finPrograma
     limpiarTerminal()
 
     # Se entra en un bucle para que el usuario seleccione el caso que se quiere estudiar
-    casoEstudio, optionLineSW, s = selectEstudio()
+    casoEstudio, optionOTS, s = selectEstudio()
 
     # Limpiza del terminal
     limpiarTerminal()
@@ -45,7 +45,7 @@ while !finPrograma
     # En caso de un LP-OPF
 
     # En caso de un LP-OPF
-    m, solGen, solFlujos, solAngulos, solLMP = LP_OPF(datos[1], datos[2], datos[3], datos[4], datos[5], datos[6], datos[7], s, optionLineSW)
+    m, solGen, solFlujos, solAngulos, solLMP = LP_OPF(datos[1], datos[2], datos[3], datos[4], datos[5], datos[6], datos[7], s, optionOTS)
 
     # Limpieza del terminal
     limpiarTerminal()

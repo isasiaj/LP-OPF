@@ -7,12 +7,13 @@ function selectEstudio()
         # Se carga la lista y el nombre a la función de elegir opción
         casoEst = elegirOpcion(listaCasos, "caso")
 
-        # Optimizar o no la topología de la red
-        optionLineSW = elegirSiNo("Optimizar topologia")
+        # Elegir el solver que se quiere emplear
+        listaOTS = ["No OTS", "OTS no LMP", "OTS M1", "OTS M2"] # Couenne
+        optionLineSW = elegirOpcion(listaOTS, "Optimizar topologia")
 
         # Elegir el solver que se quiere emplear
-        listaACSolvers = ["Gurobi", "HiGHS", "Ipopt"] # Couenne
-        s = elegirOpcion(listaACSolvers, "solver")
+        listaSolvers = ["Gurobi", "HiGHS", "Ipopt"] # Couenne
+        s = elegirOpcion(listaSolvers, "solver")
 
         # Limpieza del terminal
         limpiarTerminal()
