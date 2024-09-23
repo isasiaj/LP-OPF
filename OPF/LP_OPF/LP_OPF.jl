@@ -86,6 +86,30 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         end
         # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
         m_no_cons, _, _, _, node_mec = calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
+    elseif Calculate_LineSW == "OTS M2"
+        # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
+        _, _, _, _, Z = calculoOPF_VarBin(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
+
+        dLinea_final = copy(dLinea)
+        
+        for ii in 1:nL
+            dLinea_final.status[ii] = value(Z[ii])
+        end
+        # Se resetea el modelo para evitar errores
+        m_cons = nothing
+        m_cons = IncializarModelo(solver)
+
+        # Optimizacion con modelo de restriccion por potencia maxima en las lineas.
+        m_cons, P_G, Pₗᵢₙₑ, θ, node_lmp = calculoOPF(m_cons, dLinea_final, dGen, dNodo, nL, nG, nN, bMVA)
+
+        # Se crea unos nuevos datos de lineas de manera que la potencia maxima es igual a la demanda total 
+        # del sistema.
+        dLinea_no_cons= copy(dLinea_final)
+        for ii in 1:nL
+            dLinea_no_cons.rateA[ii] = round(Int, sum(dNodo.Pd))
+        end
+        # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
+        m_no_cons, _, _, _, node_mec = calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
     end
     
     # Guardar solución en DataFrames en caso de encontrar solución óptima en cada modelo.
