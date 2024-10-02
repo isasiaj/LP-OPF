@@ -81,7 +81,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
 
         # Se crea unos nuevos datos de lineas de manera que la potencia maxima es igual a la demanda total 
         # del sistema.
-        dLinea_no_cons= copy(dLinea_final)
+        dLinea_no_cons = copy(dLinea_final)
         for ii in 1:nL
             dLinea_no_cons.rateA[ii] = round(Int, sum(dNodo.Pd))
         end
@@ -105,7 +105,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
 
         # Se crea unos nuevos datos de lineas de manera que la potencia maxima es igual a la demanda total 
         # del sistema.
-        dLinea_no_cons= copy(dLinea_final)
+        dLinea_no_cons = copy(dLinea_final)
         for ii in 1:nL
             dLinea_no_cons.rateA[ii] = round(Int, sum(dNodo.Pd))
         end
