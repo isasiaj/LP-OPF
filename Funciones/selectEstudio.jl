@@ -12,8 +12,13 @@ function selectEstudio()
         optionLineSW = elegirOpcion(listaOTS, "Optimizar topologia")
 
         # Elegir el solver que se quiere emplear
-        listaSolvers = ["Gurobi", "HiGHS", "Ipopt"] # Couenne
-        s = elegirOpcion(listaSolvers, "solver")
+        if optionLineSW == "OTS M2"
+            listaSolvers = ["Ipopt"] # Couenne
+            s = elegirOpcion(listaSolvers, "solver")
+        else
+            listaSolvers = ["Gurobi", "HiGHS", "Ipopt"]
+            s = elegirOpcion(listaSolvers, "solver")
+        end
 
         # Limpieza del terminal
         limpiarTerminal()

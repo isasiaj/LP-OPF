@@ -1,4 +1,4 @@
-function calculoOPF_VarBin(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int)
+function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 

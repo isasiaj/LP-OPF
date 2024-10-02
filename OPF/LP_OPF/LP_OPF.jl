@@ -7,6 +7,7 @@ include("./Funciones/gestorDatosLP.jl")
 include("./Funciones/matrizSusceptancia.jl")
 include("./Funciones/calculoOPF.jl")
 include("./Funciones/calculoOPF_OTS_BinVar.jl")
+include("./Funciones/calculoOPF_OTS_FloatVar.jl")
 include("./Funciones/IncializarModelo.jl")
 
 function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int, nN::Int, bMVA::Int, solver::String, Calculate_LineSW::String) 
@@ -47,7 +48,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         dLinea_final= copy(dLinea)
     elseif Calculate_LineSW == "OTS no LMP"
         # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
-        m_cons, P_G, Pₗᵢₙₑ, θ, Z = calculoOPF_VarBin(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
+        m_cons, P_G, Pₗᵢₙₑ, θ, Z = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
         dLinea_final = copy(dLinea)
         
@@ -64,7 +65,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
 
     elseif Calculate_LineSW == "OTS M1"
         # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
-        _, _, _, _, Z = calculoOPF_VarBin(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
+        _, _, _, _, Z = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
         dLinea_final = copy(dLinea)
         
@@ -88,7 +89,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         m_no_cons, _, _, _, node_mec = calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
     elseif Calculate_LineSW == "OTS M2"
         # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
-        _, _, _, _, Z = calculoOPF_VarBin(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
+        _, _, _, _, Z = calculoOPF_FloatVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
         dLinea_final = copy(dLinea)
         
