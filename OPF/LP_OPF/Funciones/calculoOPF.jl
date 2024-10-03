@@ -17,6 +17,11 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     # Pᵢⱼ = Bᵢⱼ · (θᵢ - θⱼ)
     @variable(modelo, Pₗᵢₙₑ[ii in 1:nL], start = 0)
 
+    # Variable binaria que controla si una linea está o no activa.
+    # Funciona como un interruptor que conecta y desconecta lineas.
+    @variable(modelo, Ls[ii in 1:nL],  start = 1)
+
+
     ########## FUNCIÓN OBJETIVO ##########
     # El objetivo del problema es reducir el coste total que se calcula como ∑cᵢ·Pᵢ
     # Siendo:
@@ -42,20 +47,27 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
         push!(node_power_balance, local_node_power_balance)
     end
 
-    # Variable binaria que controla si una linea está o no activa.
-    # Funciona como un interruptor que conecta y desconecta lineas.
-    @variable(modelo, Z[ii in 1:nL],  start = 1)
+    # Si la linea no está disponible su varible Ls será cero, para asegurar que queda fuera del OPF.
+    # pensar si quitae y usar solo como estadado en la hora anterior de las lineas. 
+    for ii in 1:nL
+        if  dLinea.status[ii] == 0
+            @constraint(modelo, Ls[ii] == 0)
+        elseif  dLinea.status[ii] == 1
+            @constraint(modelo, Ls[ii] == 1)
+        end
+    end
 
     # Restricción de potencia máxima por la línea
     # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA) * dLinea.status[ii])
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA) * dLinea.status[ii])
+    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA) * Ls[ii])
+    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA) * Ls[ii])
 
     # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
     # B[ii,jj] susceptancia de la linea que conecta los nodos ii - jj
     # θ[ii] ángulo del nodo ii
     # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ) 
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] == B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]])*dLinea.status[ii])
+    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <= B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] + pi/3*(1 - Ls[ii])))
+    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] - pi/3*(1 - Ls[ii])))
 
     # Restricción de potencia mínima y máxima de los generadores
     @constraint(modelo, [ii in 1:nG], P_Gen_lb[ii] * Gen_Status[ii] <= P_G[ii] <= P_Gen_ub[ii] * Gen_Status[ii])

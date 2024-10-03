@@ -48,12 +48,12 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         dLinea_final= copy(dLinea)
     elseif Calculate_LineSW == "OTS no LMP"
         # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
-        m_cons, P_G, Pₗᵢₙₑ, θ, Z = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
+        m_cons, P_G, Pₗᵢₙₑ, θ, Ls = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
         dLinea_final = copy(dLinea)
         
         for ii in 1:nL
-            dLinea_final.status[ii] = value(Z[ii])
+            dLinea_final.status[ii] = value(Ls[ii])
         end
 
         dLinea_no_cons= copy(dLinea_final)
@@ -65,12 +65,12 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
 
     elseif Calculate_LineSW == "OTS M1"
         # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
-        _, _, _, _, Z = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
+        _, _, _, _, Ls = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
         dLinea_final = copy(dLinea)
         
         for ii in 1:nL
-            dLinea_final.status[ii] = value(Z[ii])
+            dLinea_final.status[ii] = value(Ls[ii])
         end
         # Se resetea el modelo para evitar errores
         m_cons = nothing
@@ -89,12 +89,12 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         m_no_cons, _, _, _, node_mec = calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
     elseif Calculate_LineSW == "OTS M2"
         # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
-        _, _, _, _, Z = calculoOPF_FloatVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
+        _, _, _, _, Ls = calculoOPF_FloatVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
         dLinea_final = copy(dLinea)
         
         for ii in 1:nL
-            dLinea_final.status[ii] = value(Z[ii])
+            dLinea_final.status[ii] = value(Ls[ii])
         end
         # Se resetea el modelo para evitar errores
         m_cons = nothing
