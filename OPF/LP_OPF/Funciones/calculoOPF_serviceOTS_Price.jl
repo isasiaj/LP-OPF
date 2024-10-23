@@ -1,26 +1,33 @@
-function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int)
+function calculoOPF_serviceOTS_Price(modelo, dLinea::DataFrame, dLinePre::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, last_P_G, last_Pₗᵢₙₑ, last_θ)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
     # Matriz de susceptancias de las líneas
     B = matrizSusceptancia(dLinea, nN, nL)
-    
+
     ########## VARIABLES ##########
     # Se asigna una variable de generación para todos los nodos y se le asigna un valor inicial de 0 
     @variable(modelo, P_G[ii in 1:nG], start = 0)
 
+    for ii in 1:nG
+        set_start_value(P_G[ii], last_P_G[ii])
+    end
+
     # Se considera que el módulo del voltaje en todos los nodos es la unidad y es invariante, V = 1
     # Lo único que varía es el ángulo
-    @variable(modelo, θ[1:nN], start = 0)
+    @variable(modelo, θ[ii in 1:nN], start = 0)
+
+    for ii in 1:nN
+        set_start_value(θ[ii], last_θ[ii])
+    end
 
     # El flujo por la línea que conecta los nodos i-j es igual de la susceptancia de la línea por la diferencia de ángulos entre los nodos i-j
     # Pᵢⱼ = Bᵢⱼ · (θᵢ - θⱼ)
     @variable(modelo, Pₗᵢₙₑ[ii in 1:nL], start = 0)
 
-    # Variable binaria que controla si una linea está o no activa.
-    # Funciona como un interruptor que conecta y desconecta lineas.
-    @variable(modelo, Ls[ii in 1:nL],  start = 1)
-
+    for ii in 1:nL
+        set_start_value(Pₗᵢₙₑ[ii], last_Pₗᵢₙₑ[ii])
+    end
 
     ########## FUNCIÓN OBJETIVO ##########
     # El objetivo del problema es reducir el coste total que se calcula como ∑cᵢ·Pᵢ
@@ -47,27 +54,21 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
         push!(node_power_balance, local_node_power_balance)
     end
 
-    # Si la linea no está disponible su varible Ls será cero, para asegurar que queda fuera del OPF.
-    # pensar si quitae y usar solo como estadado en la hora anterior de las lineas. 
+    # Se usa el resultado del OTS de la simulación anterior para obtener el estado de las lineas.
+    # Se separa entre lineas conectadas y no conectada, para usar o no la variable Ls en los limites de potencia
+
+
+    fixed_line_state =[]
     for ii in 1:nL
-        if  dLinea.status[ii] == 0
-            @constraint(modelo, Ls[ii] == 0)
-        elseif  dLinea.status[ii] == 1
-            @constraint(modelo, Ls[ii] == 1)
-        end
+        # Restricción de potencia máxima por la línea, debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
+        @constraint(modelo, Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA))
+        @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA))
+        # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
+        # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ)
+        local_line_state = @constraint(modelo, Pₗᵢₙₑ[ii] == B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]))
+            
+        push!(fixed_line_state,local_line_state)
     end
-
-    # Restricción de potencia máxima por la línea
-    # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA) * Ls[ii])
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA) * Ls[ii])
-
-    # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
-    # B[ii,jj] susceptancia de la linea que conecta los nodos ii - jj
-    # θ[ii] ángulo del nodo ii
-    # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ) 
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <= B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] + pi/3*(1 - Ls[ii])))
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] - pi/3*(1 - Ls[ii])))
 
     # Restricción de potencia mínima y máxima de los generadores
     @constraint(modelo, [ii in 1:nG], P_Gen_lb[ii] * Gen_Status[ii] <= P_G[ii] <= P_Gen_ub[ii] * Gen_Status[ii])
@@ -76,7 +77,7 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     # Necesario en caso de HiGHS para evitar un bucle infinito al resolver la optimización
     @constraint(modelo, θ[1] == 0)
     # Condicion de estabilidad
-    @constraint(modelo, [ii in 1:nL], - pi/3 <=  θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] <= pi/3)
+    @constraint(modelo, [ii in 1:nL],- pi/3 <=  θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] <= pi/3)
 
     ########## RESOLUCIÓN ##########
     optimize!(modelo) # Optimización
@@ -89,5 +90,17 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
         push!(LMPs, dual(node_power_balance[ii]))
     end
 
-    return modelo, P_G, Pₗᵢₙₑ, θ, LMPs
+    OTSservice = []
+    OTSservice2 = []
+    for ii in 1:nL
+        if dLinea.status[ii] != dLinePre.status[ii]
+            push!(OTSservice, dual(fixed_line_state[ii]))
+            push!(OTSservice2, 0)
+        else 
+            push!(OTSservice, 0)
+            push!(OTSservice2, 0)
+        end
+    end
+
+    return modelo, P_G, Pₗᵢₙₑ, θ, LMPs, OTSservice, OTSservice2
 end

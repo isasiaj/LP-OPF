@@ -1,4 +1,4 @@
-function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int)
+function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, Pₗᵢₙₑ_initial)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
@@ -63,8 +63,8 @@ function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::Da
     # Si la linea no está disponible su varible Ls será cero, para asegurar que queda fuera del OPF.
     # pensar si quitae y usar solo como estadado en la hora anterior de las lineas. 
     for ii in 1:nL
-        if  dLinea.status[ii] == 0
-            @constraint(modelo, Ls[ii] == 0)
+        if  Pₗᵢₙₑ_initial[ii] == 0
+            @constraint(modelo, Ls[ii] == 1)
         end
     end
 
@@ -74,6 +74,8 @@ function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::Da
     # Se selecciona el nodo 1 como nodo de refenrecia
     # Necesario en caso de HiGHS para evitar un bucle infinito al resolver la optimización
     @constraint(modelo, θ[1] == 0)
+    # Condicion de estabilidad
+    @constraint(modelo, [ii in 1:nL], - pi/3 <=  θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] <= pi/3)
 
     ########## RESOLUCIÓN ##########
     optimize!(modelo) # Optimización
