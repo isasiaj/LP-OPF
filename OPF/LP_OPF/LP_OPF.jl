@@ -9,6 +9,7 @@ include("./Funciones/calculoOPF.jl")
 include("./Funciones/calculoOPF_OTS_BinVar.jl")
 include("./Funciones/calculoOPF_OTS_FloatVar.jl")
 include("./Funciones/calculoOPF_serviceOTS_Price.jl")
+include("./Funciones/calculoOPF_serviceOTS_Relax.jl")
 include("./Funciones/IncializarModelo.jl")
 
 function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int, nN::Int, bMVA::Int, solver::String, Calculate_LineSW::String) 
@@ -21,69 +22,75 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
     # nN:               Número de nodos
     # bMVA:             Potencia base
     # solver:           Solver a utilizar
-    # Calculate_LineSW: Varible binaria, el usuario quiere optimizar modifcando la topologia de la red
+    # Calculate_LineSW: Tipo de optimización elegida por el usuario
     
 
     ########## INICIALIZAR MODELO ##########
-    # Se crea el modelo "m_cons" con la función de JuMP.Model() y tiene como argumento el optimizador usado,
-    # y el modelo "m_no_cons" con la función.
-    # El modelo "m_no_cons" no se tendra en cuenta la potencia maxima en las lineas, para hacer el calculo 
-    # del precio marginal sin el coste por congestion en las lineas
+    # Se crea el modelo "m_cons" con optimizador elegido,
+    # y el modelo "m_no_cons".
     m_cons    = IncializarModelo(solver)
     m_no_cons = IncializarModelo(solver)
 
     if Calculate_LineSW == "No OTS"
-        # Optimizacion con modelo de restriccion por potencia maxima en las lineas.
+        # Optimización con modelo de restricción por potencia maxima en las lineas.
         m_cons, P_G, Pₗᵢₙₑ, θ, node_lmp = calculoOPF(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
-        # Se crea unos nuevos datos de lineas de manera que la potencia maxima es igual a la demanda total 
-        # del sistema.
+        # Se modifican datos de lineas de manera que la potencia máxima es igual a la demanda total 
+        # del sistema, se usa para calcular cual seria el LMP en este caso.
         dLinea_no_cons= copy(dLinea)
         for ii in 1:nL
             dLinea_no_cons.rateA[ii] =  round(Int, sum(dNodo.Pd))
         end
-        # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
-        m_no_cons, _, _, _, node_mec =calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
+        # Optimización sin congestión en las lineas.
+        m_no_cons, _, _, _, node_mec = calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
 
         # Se copia varible para que la estructura de salida sea la misma en todos los casos
         dLinea_final= copy(dLinea)
-#    elseif Calculate_LineSW == "OTS no LMP"
-#        # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
-#        m_cons, P_G, Pₗᵢₙₑ, θ, Ls = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
-#
-#        dLinea_final = copy(dLinea)
-#        
-#        for ii in 1:nL
-#            dLinea_final.status[ii] = value(Ls[ii])
-#        end
-#
-#        dLinea_no_cons= copy(dLinea_final)
-#        for ii in 1:nL
-#            dLinea_no_cons.rateA[ii] = round(Int, sum(dNodo.Pd))
-#        end
-#        node_lmp = zeros(nN)
-#        node_mec = zeros(nN)
-#
-    elseif Calculate_LineSW == "OTS M1"
-        # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
-        _, _, Pₗᵢₙₑ_initial, _, _ = calculoOPF(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
-
-        m_cons = nothing
-        m_cons = IncializarModelo(solver)
-
-        m_cons, P_G, Pₗᵢₙₑ, θ, Ls = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [value(Pₗᵢₙₑ_initial[ii]) for ii in 1:nL])
-
-        dLinea_final = copy(dLinea)
-        
+    elseif Calculate_LineSW == "OTS simple"
+        m_cons,P_G, Pₗᵢₙₑ, θ, Ls = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [false for ii in 1:nL])
+        dLinea_final = copy(dLinea) 
         for ii in 1:nL
             dLinea_final.status[ii] = round(Int, value(Ls[ii]))
         end
-        # Se resetea el modelo para evitar errores
-        m_cons = nothing
-        m_cons = IncializarModelo(solver)
+    elseif Calculate_LineSW == "OTS M1"
+        # Se calcula una primera optimizacion Con el estado inicial de las lineas, esto se usa para calcular el coste inicial.
+        m_no_cons, _, _, _, _ = calculoOPF(m_no_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
+        coste_base = round(objective_value(m_no_cons), digits = 2)
 
-        # Optimizacion con modelo de restriccion por potencia maxima en las lineas.
-        _, _, _, _, _, OTSservice, OTSservice2 = calculoOPF_serviceOTS_Price(m_cons, dLinea_final, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [value(P_G[ii]) for ii in 1:nG], [value(Pₗᵢₙₑ[ii]) for ii in 1:nL], [value(θ[ii]) for ii in 1:nN])
+        #Se calcula la topología de la red que minimiza el coste.
+        m_no_cons = nothing
+        m_no_cons = IncializarModelo(solver) # Se resetea el modelo para evitar errores
+        m_no_cons,P_G, Pₗᵢₙₑ, θ, Ls = calculoOPF_BinVar(m_no_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [false for ii in 1:nL])
+
+        # Se crea la estrcutura dLinea_final que contendra los datos de las lineas utilizadas en la red optima.
+        # se modifica la columna status para conectar y desconectar lineas
+        dLinea_final = copy(dLinea) 
+        for ii in 1:nL
+            dLinea_final.status[ii] = round(Int, value(Ls[ii]))
+        end
+
+        print(round(objective_value(m_no_cons), digits = 2))
+        readline()
+        print(dLinea_final.status)
+        for ii in 1:nG
+            println(value(P_G[ii])*bMVA)
+        end
+        for ii in 1:nL
+            println(value(Pₗᵢₙₑ[ii])*bMVA)
+        end
+        for ii in 1:nN
+            println(value(θ[ii]))
+        end
+        readline()
+
+        #Calculo OPF con la topología optima.
+        m_cons, P_G, Pₗᵢₙₑ, θ, node_lmp = calculoOPF(m_cons, dLinea_final, dGen, dNodo, nL, nG, nN, bMVA)
+
+        # Optimizacion de 
+        # Se resetea el modelo para evitar errores
+        m_no_cons = nothing
+        m_no_cons = IncializarModelo(solver)
+        m_no_cons, _, _, _, _, OTSservice, OTSservice2 = calculoOPF_serviceOTS_Price(m_no_cons, dLinea_final, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [value(P_G[ii]) for ii in 1:nG], [value(Pₗᵢₙₑ[ii]) for ii in 1:nL], [value(θ[ii]) for ii in 1:nN])
 
         # Se crea unos nuevos datos de lineas de manera que la potencia maxima es igual a la demanda total 
         # del sistema.
@@ -91,19 +98,21 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         for ii in 1:nL
             dLinea_no_cons.rateA[ii] = round(Int, sum(dNodo.Pd))
         end
-        # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
+        # Se resetea el modelo para evitar errores
+        m_no_cons = nothing
+        m_no_cons = IncializarModelo(solver)
         m_no_cons, _, _, _, node_mec = calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
 
     elseif Calculate_LineSW == "OTS M2"
         # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
-        m_cons, _, Pₗᵢₙₑ_initial, _, _ = calculoOPF(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
+        m_cons, _, _, _, _ = calculoOPF(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
         coste_base = round(objective_value(m_cons), digits = 2)
 
         m_cons = nothing
         m_cons = IncializarModelo(solver)
 
-        m_cons, P_G, Pₗᵢₙₑ, θ, Ls = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [value(Pₗᵢₙₑ_initial[ii]) for ii in 1:nL])
+        m_cons, P_G, Pₗᵢₙₑ, θ, Ls = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [false for ii in 1:nL])
 
         dLinea_final = copy(dLinea)
         
@@ -150,7 +159,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         m_cons = nothing
         m_cons = IncializarModelo(solver)
 
-        m_cons, _, _, _, Ls = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, ones(nL))
+        m_cons, _, _, _, Ls = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [false for ii in 1:nL])
 
         coste_base = round(objective_value(m_cons), digits = 2)
 
@@ -202,7 +211,44 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         m_no_cons, _, _, _, node_mec = calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
 
     elseif Calculate_LineSW == "OTS M4"
-        # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
+        # Se calcula una primera optimizacion Con el estado inicial de las lineas, esto se usa para calcular el coste inicial.
+        m_no_cons, _, _, _, _ = calculoOPF(m_no_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
+        coste_base = round(objective_value(m_no_cons), digits = 2)
+
+        #Se calcula la topología de la red que minimiza el coste.
+        m_no_cons = nothing
+        m_no_cons = IncializarModelo(solver) # Se resetea el modelo para evitar errores
+        m_no_cons, _, _, _, Ls = calculoOPF_BinVar(m_no_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [false for ii in 1:nL])
+
+        # Se crea la estrcutura dLinea_final que contendra los datos de las lineas utilizadas en la red optima.
+        # se modifica la columna status para conectar y desconectar lineas
+        dLinea_final = copy(dLinea) 
+        for ii in 1:nL
+            dLinea_final.status[ii] = round(Int, value(Ls[ii]))
+        end
+        #Calculo OPF con la topología optima.
+        m_cons, P_G, Pₗᵢₙₑ, θ, node_lmp = calculoOPF(m_cons, dLinea_final, dGen, dNodo, nL, nG, nN, bMVA)
+
+        
+        # se crea con solver "Ipopt" al ser necesario usar un solver que soporte modelos no lineales.
+        m_no_cons = nothing
+        m_no_cons = IncializarModelo("Ipopt") 
+
+        # Calculo d como influye en coste modificar el estado de las lineas.
+        _, _, _, _, _, OTSservice, OTSservice2 = calculoOPF_serviceOTS_Relax(m_no_cons, dLinea_final, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [value(P_G[ii]) for ii in 1:nG], [value(Pₗᵢₙₑ[ii]) for ii in 1:nL], [value(θ[ii]) for ii in 1:nN])
+
+        # Se crea unos nuevos datos de lineas de manera que la potencia maxima es igual a la demanda total del sistema.
+        dLinea_aux = copy(dLinea_final)
+        for ii in 1:nL
+            dLinea_aux.rateA[ii] = round(Int, sum(dNodo.Pd))
+        end
+        # Se elimina la restriccion de potencia maxima en las lineas para calculas los costes por congestion
+        m_no_cons = nothing
+        m_no_cons = IncializarModelo(solver) # Se resetea el modelo para evitar errores
+        m_no_cons, _, _, _, node_mec = calculoOPF(m_no_cons, dLinea_aux, dGen, dNodo, nL, nG, nN, bMVA)
+
+    elseif Calculate_LineSW == "OTS M5"
+        # Se calcula una primera optimización relajando las varibles de conexión/desconexión de las lienas a variables continuas.
         _, _, _, _, Ls = calculoOPF_FloatVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
         dLinea_final = copy(dLinea)

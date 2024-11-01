@@ -2,8 +2,8 @@ function calculoOPF_FloatVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
-    # Matriz de susceptancias de las líneas
-    B = matrizSusceptancia(dLinea, nN, nL)
+    # Array de susceptancias de las líneas
+    B = matrizSusceptancia(dLinea)
     
     ########## VARIABLES ##########
     # Se asigna una variable de generación para todos los generadores y se le asigna un valor inicial de 0 
@@ -32,7 +32,7 @@ function calculoOPF_FloatVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::
 
 
     ########## RESTRICCIONES ##########
-    # Restricción de la relación entre los nodos: PGen[i] - PDem[i] = ∑(B[i,j] · θ[j]))
+    # Restricción de la relación entre los nodos: PGenᵢ - PDemᵢ = ∑(Pᵢⱼ) - ∑(Pⱼᵢ)
     # Siendo 
     # P_G[ii] la potencia generada en el nodo ii
     # P_Demand[ii] la potencia demandada en el nodo ii
@@ -54,10 +54,10 @@ function calculoOPF_FloatVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::
     @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA) * Ls[ii])
 
     # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
-    # B[ii,jj] susceptancia de la linea que conecta los nodos ii - jj
+    # B[ii] susceptancia de la linea ii, que conecta los nodos fbus[ii] - tbus[ii]
     # θ[ii] ángulo del nodo ii
     # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ) 
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] == B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]])*Ls[ii])
+    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]])*Ls[ii])
 
     # Si la linea no está disponible su varible Ls será cero, para asegurar que queda fuera del OPF.
     # pensar si quitae y usar solo como estadado en la hora anterior de las lineas.

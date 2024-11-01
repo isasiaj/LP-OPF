@@ -1,9 +1,9 @@
-function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, Pₗᵢₙₑ_initial)
+function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, fixed_lines::Vector{Bool})
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
-    # Matriz de susceptancias de las líneas
-    B = matrizSusceptancia(dLinea, nN, nL)
+    # Array de susceptancias de las líneas
+    B = matrizSusceptancia(dLinea)
     
     ########## VARIABLES ##########
     # Se asigna una variable de generación para todos los generadores y se le asigna un valor inicial de 0 
@@ -27,12 +27,12 @@ function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::Da
     # Siendo:
     #   cᵢ el coste del Generador en el nodo i
     #   Pᵢ la potencia generada del Generador en el nodo i
-    Total_cost = sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nG)
+    Total_cost = sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nG) + sum(0.001*(dLinea.status[ii] - Ls[ii])^2 for ii in 1:nL)
     @objective(modelo, Min, Total_cost)
 
 
     ########## RESTRICCIONES ##########
-    # Restricción de la relación entre los nodos: PGen[i] - PDem[i] = ∑(B[i,j] · θ[j]))
+    # Restricción de la relación entre los nodos: PGenᵢ - PDemᵢ = ∑(Pᵢⱼ) - ∑(Pⱼᵢ)
     # Siendo 
     # P_G[ii] la potencia generada en el nodo ii
     # P_Demand[ii] la potencia demandada en el nodo ii
@@ -47,24 +47,22 @@ function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::Da
         push!(node_power_balance, local_node_power_balance)
     end
 
-
     # Restricción de potencia máxima por la línea
     # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
     @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA) * Ls[ii])
     @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA) * Ls[ii])
 
     # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
-    # B[ii,jj] susceptancia de la linea que conecta los nodos ii - jj
+    # B[ii] susceptancia de la linea que conecta los nodos fbus[ii] - tbus[ii]
     # θ[ii] ángulo del nodo ii
     # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ) 
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <= B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] + pi/3*(1 - Ls[ii])))
-    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= B[dLinea.fbus[ii], dLinea.tbus[ii]] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] - pi/3*(1 - Ls[ii])))
+    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] <= B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] + pi/3*(1 - Ls[ii])))
+    @constraint(modelo, [ii in 1:nL], Pₗᵢₙₑ[ii] >= B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] - pi/3*(1 - Ls[ii])))
 
     # Si la linea no está disponible su varible Ls será cero, para asegurar que queda fuera del OPF.
-    # pensar si quitae y usar solo como estadado en la hora anterior de las lineas. 
     for ii in 1:nL
-        if  Pₗᵢₙₑ_initial[ii] == 0
-            @constraint(modelo, Ls[ii] == 1)
+        if  fixed_lines[ii] == true
+            @constraint(modelo, Ls[ii] == dLinea.status[ii])
         end
     end
 

@@ -8,11 +8,11 @@ function selectEstudio()
         casoEst = elegirOpcion(listaCasos, "caso")
 
         # Elegir el solver que se quiere emplear
-        listaOTS = ["No OTS", "OTS no LMP", "OTS M1", "OTS M2", "OTS M3", "OTS M4"] # Couenne
+        listaOTS = ["No OTS", "OTS simple", "OTS M1", "OTS M2", "OTS M3", "OTS M4", "OTS M5"] # Couenne
         optionLineSW = elegirOpcion(listaOTS, "Optimizar topologia")
 
         # Elegir el solver que se quiere emplear
-        if optionLineSW == "OTS M4"
+        if optionLineSW == "OTS M5"
             listaSolvers = ["Ipopt"] # Couenne
             s = elegirOpcion(listaSolvers, "solver")
         else

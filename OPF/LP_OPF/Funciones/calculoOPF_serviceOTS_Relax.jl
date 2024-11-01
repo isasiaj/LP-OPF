@@ -1,4 +1,4 @@
-function calculoOPF_serviceOTS_Price(modelo, dLinea::DataFrame, dLinePre::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, last_P_G, last_Pₗᵢₙₑ, last_θ)
+function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLinePre::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, last_P_G, last_Pₗᵢₙₑ, last_θ)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
@@ -27,6 +27,12 @@ function calculoOPF_serviceOTS_Price(modelo, dLinea::DataFrame, dLinePre::DataFr
 
     for ii in 1:nL
         set_start_value(Pₗᵢₙₑ[ii], last_Pₗᵢₙₑ[ii])
+    end
+
+    @variable(modelo, Ls[ii in 1:nL], start = 0)
+
+    for ii in 1:nL
+        set_start_value(Ls[ii], dLinea.status[ii])
     end
 
     ########## FUNCIÓN OBJETIVO ##########
@@ -59,15 +65,18 @@ function calculoOPF_serviceOTS_Price(modelo, dLinea::DataFrame, dLinePre::DataFr
 
 
     fixed_line_state =[]
+    fixed_line_state2 =[]
     for ii in 1:nL
+        local_line_state = @constraint(modelo, Ls[ii] == dLinea.status[ii])
         # Restricción de potencia máxima por la línea, debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
-        @constraint(modelo, Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA))
-        @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA))
+        @constraint(modelo, Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA) * Ls[ii])
+        @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA) * Ls[ii])
         # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
         # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ)
-        local_line_state = @constraint(modelo, Pₗᵢₙₑ[ii] == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]))
+        local_line_state2 = @constraint(modelo, Pₗᵢₙₑ[ii] == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]) * Ls[ii])
             
         push!(fixed_line_state,local_line_state)
+        push!(fixed_line_state2,local_line_state2)
     end
 
     # Restricción de potencia mínima y máxima de los generadores
@@ -93,13 +102,8 @@ function calculoOPF_serviceOTS_Price(modelo, dLinea::DataFrame, dLinePre::DataFr
     OTSservice = []
     OTSservice2 = []
     for ii in 1:nL
-        if dLinea.status[ii] != dLinePre.status[ii]
-            push!(OTSservice, dual(fixed_line_state[ii]))
-            push!(OTSservice2, 0)
-        else 
-            push!(OTSservice, dual(fixed_line_state[ii]))
-            push!(OTSservice2, 0)
-        end
+            push!(OTSservice, round(dual(fixed_line_state[ii]), digits=2))
+            push!(OTSservice2, round(dual(fixed_line_state2[ii]), digits=2))
     end
 
     return modelo, P_G, Pₗᵢₙₑ, θ, LMPs, OTSservice, OTSservice2
