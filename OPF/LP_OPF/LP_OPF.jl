@@ -60,7 +60,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         #Se calcula la topología de la red que minimiza el coste.
         m_no_cons = nothing
         m_no_cons = IncializarModelo(solver) # Se resetea el modelo para evitar errores
-        m_no_cons,P_G, Pₗᵢₙₑ, θ, Ls = calculoOPF_BinVar(m_no_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [false for ii in 1:nL])
+        m_no_cons, _, _, _, Ls = calculoOPF_BinVar(m_no_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [false for ii in 1:nL])
 
         # Se crea la estrcutura dLinea_final que contendra los datos de las lineas utilizadas en la red optima.
         # se modifica la columna status para conectar y desconectar lineas
@@ -68,20 +68,6 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         for ii in 1:nL
             dLinea_final.status[ii] = round(Int, value(Ls[ii]))
         end
-
-        print(round(objective_value(m_no_cons), digits = 2))
-        readline()
-        print(dLinea_final.status)
-        for ii in 1:nG
-            println(value(P_G[ii])*bMVA)
-        end
-        for ii in 1:nL
-            println(value(Pₗᵢₙₑ[ii])*bMVA)
-        end
-        for ii in 1:nN
-            println(value(θ[ii]))
-        end
-        readline()
 
         #Calculo OPF con la topología optima.
         m_cons, P_G, Pₗᵢₙₑ, θ, node_lmp = calculoOPF(m_cons, dLinea_final, dGen, dNodo, nL, nG, nN, bMVA)
@@ -104,7 +90,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         m_no_cons, _, _, _, node_mec = calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
 
     elseif Calculate_LineSW == "OTS M2"
-        # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
+        # se calcula una primera optimizacion con varible binarias para el estado de las lineas.
         m_cons, _, _, _, _ = calculoOPF(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
         coste_base = round(objective_value(m_cons), digits = 2)
@@ -151,7 +137,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         m_no_cons, _, _, _, node_mec = calculoOPF(m_no_cons, dLinea_no_cons, dGen, dNodo, nL, nG, nN, bMVA)
 
     elseif Calculate_LineSW == "OTS M3"
-        # se calcula una primera optimizacion con varible binarias para el esatdo de las lineas.
+        # se calcula una primera optimizacion con varible binarias para el estado de las lineas.
         m_cons, _, _, _, _ = calculoOPF(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
         coste_inicial = round(objective_value(m_cons), digits = 2)

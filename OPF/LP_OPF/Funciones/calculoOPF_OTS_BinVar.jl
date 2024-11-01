@@ -27,8 +27,10 @@ function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::Da
     # Siendo:
     #   cᵢ el coste del Generador en el nodo i
     #   Pᵢ la potencia generada del Generador en el nodo i
-    Total_cost = sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nG) + sum(0.001*(dLinea.status[ii] - Ls[ii])^2 for ii in 1:nL)
-    @objective(modelo, Min, Total_cost)
+    Coste_generacion = sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nG; init=0)
+    penalizacion_cerrar = 0.001* sum(((dLinea.status[ii] - Ls[ii])) for ii in 1:nL if dLinea.status[ii] == 1; init=0)
+    penalizacion_abrir = 0.001 * sum((Ls[ii]) for ii in 1:nL if dLinea.status[ii] == 0; init=0)
+    @objective(modelo, Min, Coste_generacion + penalizacion_cerrar + penalizacion_abrir)
 
 
     ########## RESTRICCIONES ##########
