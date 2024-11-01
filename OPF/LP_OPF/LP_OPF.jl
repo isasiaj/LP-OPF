@@ -47,11 +47,13 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         # Se copia varible para que la estructura de salida sea la misma en todos los casos
         dLinea_final= copy(dLinea)
     elseif Calculate_LineSW == "OTS simple"
-        m_cons,P_G, Pₗᵢₙₑ, θ, Ls = calculoOPF_BinVar(m_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [false for ii in 1:nL])
+        m_no_cons,_, _, _, Ls = calculoOPF_BinVar(m_no_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA, [false for ii in 1:nL])
         dLinea_final = copy(dLinea) 
         for ii in 1:nL
             dLinea_final.status[ii] = round(Int, value(Ls[ii]))
         end
+        # Optimización con modelo de restricción por potencia maxima en las lineas.
+        m_cons, P_G, Pₗᵢₙₑ, θ, node_lmp = calculoOPF(m_cons, dLinea_final, dGen, dNodo, nL, nG, nN, bMVA)
     elseif Calculate_LineSW == "OTS M1"
         # Se calcula una primera optimizacion Con el estado inicial de las lineas, esto se usa para calcular el coste inicial.
         m_no_cons, _, _, _, _ = calculoOPF(m_no_cons, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
