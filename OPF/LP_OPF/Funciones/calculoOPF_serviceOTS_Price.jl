@@ -102,5 +102,5 @@ function calculoOPF_serviceOTS_Price(modelo, dLinea::DataFrame, dLinePre::DataFr
         end
     end
 
-    return modelo, P_G, Pₗᵢₙₑ, θ, LMPs, OTSservice, OTSservice2
+    return modelo, [round(value(P_G[ii]), digits = 6) for ii in 1:nG], [round(value(Pₗᵢₙₑ[ii]), digits = 6) for ii in 1:nL], [round(value(θ[ii]), digits = 6) for ii in 1:nN], LMPs, OTSservice, OTSservice2
 end

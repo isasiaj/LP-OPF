@@ -79,5 +79,5 @@ function calculoOPF_FloatVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::
     ########## RESOLUCIÓN ##########
     optimize!(modelo) # Optimización
 
-    return modelo, P_G, Pₗᵢₙₑ, θ, Ls
+    return modelo, [round(value(P_G[ii]), digits = 6) for ii in 1:nG], [round(value(Pₗᵢₙₑ[ii]), digits = 6) for ii in 1:nL], [round(value(θ[ii]), digits = 6) for ii in 1:nN], Ls
 end

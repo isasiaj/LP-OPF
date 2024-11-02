@@ -106,5 +106,5 @@ function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLinePre::DataFr
             push!(OTSservice2, round(dual(fixed_line_state2[ii]), digits=2))
     end
 
-    return modelo, P_G, Pₗᵢₙₑ, θ, LMPs, OTSservice, OTSservice2
+    return modelo, [round(value(P_G[ii]), digits = 6) for ii in 1:nG], [round(value(Pₗᵢₙₑ[ii]), digits = 6) for ii in 1:nL], [round(value(θ[ii]), digits = 6) for ii in 1:nN], LMPs, OTSservice, OTSservice2
 end

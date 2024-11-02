@@ -296,7 +296,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         # solGen recoge los valores de la potencia generada de cada generador de la red
         # Primera columna: nodo
         # Segunda columna: valor lo toma de la variable "P_G" (está en pu y se pasa a MVA) del generador de dicho nodo.
-        solGen = DataFrames.DataFrame(bus = (dGen.bus), PGEN = (value.(P_G) * bMVA))
+        solGen = DataFrames.DataFrame(bus = (dGen.bus), PGEN = (round.(P_G.* bMVA, digits = 2)))
 
         # solFlujos recoge el flujo de potencia que pasa por todas las líneas
         # Primera columna: nodo del que sale
@@ -307,25 +307,25 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
 
         for ii in 1:nL
             # Se crean dos casos para que siempre la potencia de positiva, invirtiendo nodos fbus y tbus
-            if value(Pₗᵢₙₑ[ii] ) >= 0
+            if Pₗᵢₙₑ[ii] >= 0
                 push!(solFlujos, Dict(:fbus => (dLinea_final.fbus[ii]),
                                       :tbus => (dLinea_final.tbus[ii]), 
-                                      :FLUJO => round(value(Pₗᵢₙₑ[ii]) * bMVA, digits = 2), 
-                                      :LINE_CAPACITY => round((value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea_final.rateA[ii], digits = 3),
-                                      :State0 => value(dLinea.status[ii]),
-                                      :State1 => value(dLinea_final.status[ii]),
-                                      :OTS1 => value(OTSservice[ii]),
-                                      :OTS2 => value(OTSservice2[ii])))
+                                      :FLUJO => round(Pₗᵢₙₑ[ii] * bMVA, digits = 2), 
+                                      :LINE_CAPACITY => round((Pₗᵢₙₑ[ii] * bMVA)/dLinea_final.rateA[ii], digits = 3),
+                                      :State0 => dLinea.status[ii],
+                                      :State1 => dLinea_final.status[ii],
+                                      :OTS1 => OTSservice[ii],
+                                      :OTS2 => OTSservice2[ii]))
 
             else
-                push!(solFlujos, Dict(:fbus => (dLinea_final.tbus[ii]), 
-                                      :tbus => (dLinea_final.fbus[ii]), 
-                                      :FLUJO => round(-value(Pₗᵢₙₑ[ii]) * bMVA, digits = 2), 
-                                      :LINE_CAPACITY => round((-value(Pₗᵢₙₑ[ii]) * bMVA)/dLinea_final.rateA[ii], digits = 3),
-                                      :State0 => value(dLinea.status[ii]),
-                                      :State1 => value(dLinea_final.status[ii]),
-                                      :OTS1 => value(OTSservice[ii]),
-                                      :OTS2 => value(OTSservice2[ii])))
+                push!(solFlujos, Dict(:fbus => dLinea_final.tbus[ii], 
+                                      :tbus => dLinea_final.fbus[ii], 
+                                      :FLUJO => round(-Pₗᵢₙₑ[ii] * bMVA, digits = 2), 
+                                      :LINE_CAPACITY => round((-Pₗᵢₙₑ[ii] * bMVA)/dLinea_final.rateA[ii], digits = 3),
+                                      :State0 => dLinea.status[ii],
+                                      :State1 => dLinea_final.status[ii],
+                                      :OTS1 => OTSservice[ii],
+                                      :OTS2 => OTSservice2[ii]))
             end
         end
 
@@ -334,7 +334,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         # Segunda columna: valor del desfase en grados
         solAngulos = DataFrames.DataFrame(bus_i = Int[], GRADOS = Float64[])
         for ii in 1:nN
-            push!(solAngulos, Dict(:bus_i => ii, :GRADOS => round(rad2deg(value(θ[ii])), digits = 2)))
+            push!(solAngulos, Dict(:bus_i => ii, :GRADOS => round(rad2deg(θ[ii]), digits = 2)))
         end
 
         # solLMP recoge los precios marginales en cada nodo
