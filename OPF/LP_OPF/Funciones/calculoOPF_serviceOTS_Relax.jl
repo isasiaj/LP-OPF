@@ -1,4 +1,5 @@
-function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLinePre::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, last_P_G, last_Pₗᵢₙₑ, last_θ)
+function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLineaPre::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, last_P_G, last_Pₗᵢₙₑ, last_θ)
+    set_optimizer_attribute(modelo, "tol", 1e-30)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
@@ -40,8 +41,8 @@ function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLinePre::DataFr
     # Siendo:
     #   cᵢ el coste del Generador en el nodo i
     #   Pᵢ la potencia generada del Generador en el nodo i
-    Total_cost = sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nG)
-    @objective(modelo, Min, Total_cost)
+    Total_cost = 7600 - sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nG) 
+    @objective(modelo, Max, Total_cost)
 
 
     ########## RESTRICCIONES ##########
@@ -64,19 +65,50 @@ function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLinePre::DataFr
     # Se separa entre lineas conectadas y no conectada, para usar o no la variable Ls en los limites de potencia
 
 
-    fixed_line_state =[]
-    fixed_line_state2 =[]
+    fixed_line_state = []
+    fixed_line_state2 = []
+    fixed_line_state3 = []
+
     for ii in 1:nL
-        local_line_state = @constraint(modelo, Ls[ii] == dLinea.status[ii])
-        # Restricción de potencia máxima por la línea, debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
-        @constraint(modelo, Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA) * Ls[ii])
-        @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA) * Ls[ii])
-        # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
-        # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ)
-        local_line_state2 = @constraint(modelo, Pₗᵢₙₑ[ii] == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]) * Ls[ii])
-            
-        push!(fixed_line_state,local_line_state)
-        push!(fixed_line_state2,local_line_state2)
+        if  dLinea.status[ii] != dLineaPre.status[ii]
+            if dLinea.status[ii] == 1
+                @constraint(modelo, Ls[ii] >= 0)
+                @constraint(modelo, Ls[ii] <= 0)
+                # Restricción de potencia máxima por la línea, debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
+                local_line_state  = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA >= -(dLinea.rateA[ii]) * Ls[ii])
+                local_line_state2  = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA <=  (dLinea.rateA[ii]) * Ls[ii])
+                # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
+                # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ)
+                local_line_state3 = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]) * Ls[ii]*bMVA)
+            else
+                @constraint(modelo, Ls[ii] >= 1)
+                @constraint(modelo, Ls[ii] <= 1)
+                # Restricción de potencia máxima por la línea, debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
+                local_line_state3 = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA >= -(dLinea.rateA[ii]) * Ls[ii])
+                local_line_state = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA <=  (dLinea.rateA[ii]) * Ls[ii])
+                # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
+                # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ)
+                local_line_state2 = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]) * (Ls[ii])*bMVA)
+            end
+            push!(fixed_line_state,local_line_state)
+            push!(fixed_line_state2,local_line_state2)
+            push!(fixed_line_state3,local_line_state3)
+        else
+            if dLinea.status[ii] == 1
+                # Restricción de potencia máxima por la línea, debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
+                @constraint(modelo, Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA))
+                @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA))
+                # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
+                # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ)
+                @constraint(modelo, Pₗᵢₙₑ[ii] == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]))
+            else
+                @constraint(modelo, Pₗᵢₙₑ[ii] == 0)
+            end
+                
+            push!(fixed_line_state,0)
+            push!(fixed_line_state2,0)
+            push!(fixed_line_state3,0)
+        end
     end
 
     # Restricción de potencia mínima y máxima de los generadores
@@ -102,8 +134,18 @@ function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLinePre::DataFr
     OTSservice = []
     OTSservice2 = []
     for ii in 1:nL
-            push!(OTSservice, round(dual(fixed_line_state[ii]), digits=2))
-            push!(OTSservice2, round(dual(fixed_line_state2[ii]), digits=2))
+        if dLinea.status[ii] != dLineaPre.status[ii]
+            if dLinea.status[ii] == 1
+                push!(OTSservice, round((dual(fixed_line_state[ii]) + dual(fixed_line_state2[ii]) + dual(fixed_line_state3[ii])), digits=6))
+                push!(OTSservice2, 0)
+            else
+                push!(OTSservice, round(dual(fixed_line_state[ii]), digits=6))
+                push!(OTSservice2, round(dual(fixed_line_state2[ii]), digits=6))
+            end
+        else
+            push!(OTSservice, 0)
+            push!(OTSservice2, 0)
+        end
     end
 
     return modelo, [round(value(P_G[ii]), digits = 6) for ii in 1:nG], [round(value(Pₗᵢₙₑ[ii]), digits = 6) for ii in 1:nL], [round(value(θ[ii]), digits = 6) for ii in 1:nN], LMPs, OTSservice, OTSservice2
