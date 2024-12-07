@@ -28,44 +28,44 @@ function gestorResultados(modelo, solGeneradores, solFlujos, solAngulos, solLMP,
 
         end
 
-        # Preguntar al usuario si quiere ver el sistema eléctrico
-        # En caso de que la ruta exista
-        solucion = 0
-        if rutaM != "None"
-            caso = parse_file(rutaM)
+        # # Preguntar al usuario si quiere ver el sistema eléctrico
+        # # En caso de que la ruta exista
+        # solucion = 0
+        # if rutaM != "None"
+        #     caso = parse_file(rutaM)
 
-            println("\n¿Quiere ver gráficamente la red eléctrica seleccionada?")
-            println("Pulsa la tecla ENTER para confirmar o cualquier otra entrada para negar")
-            verGrafica = readline(stdin)
-            if verGrafica == ""
-                # Con el paquete de PowerPlots.jl se representa el sistema
-                powerplot(caso)
+        #     println("\n¿Quiere ver gráficamente la red eléctrica seleccionada?")
+        #     println("Pulsa la tecla ENTER para confirmar o cualquier otra entrada para negar")
+        #     verGrafica = readline(stdin)
+        #     if verGrafica == ""
+        #         # Con el paquete de PowerPlots.jl se representa el sistema
+        #         powerplot(caso)
 
-            else
-                println("\nNo se mostrará gráficamente")
-            end
+        #     else
+        #         println("\nNo se mostrará gráficamente")
+        #     end
 
-            # Usando Gurobi
-            if solver == "Gurobi"
-                pm = instantiate_model(rutaM, DCMPPowerModel, PowerModels.build_opf)
-                solucion = optimize_model!(pm, optimizer=Gurobi.Optimizer)
-            # Usando HiGHS
-            elseif solver == "HiGHS"
-                solucion = solve_dc_opf(rutaM, HiGHS.Optimizer)
-            # Usando Ipopt
-            elseif solver == "Ipopt"
-                solucion = solve_ac_opf(rutaM, Ipopt.Optimizer)
-            # Error
-            else
-                print("Error al cargar la resolución DC por PowerModels")
-            end
+        #     # Usando Gurobi
+        #     if solver == "Gurobi"
+        #         pm = instantiate_model(rutaM, DCMPPowerModel, PowerModels.build_opf)
+        #         solucion = optimize_model!(pm, optimizer=Gurobi.Optimizer)
+        #     # Usando HiGHS
+        #     elseif solver == "HiGHS"
+        #         solucion = solve_dc_opf(rutaM, HiGHS.Optimizer)
+        #     # Usando Ipopt
+        #     elseif solver == "Ipopt"
+        #         solucion = solve_ac_opf(rutaM, Ipopt.Optimizer)
+        #     # Error
+        #     else
+        #         print("Error al cargar la resolución DC por PowerModels")
+        #     end
 
-            limpiarTerminal()
+        #     limpiarTerminal()
 
-        # En caso de que la ruta no exista
-        else
-            println("Archivo del caso .m no encontrado\n")
-        end
+        # # En caso de que la ruta no exista
+        # else
+        #     println("Archivo del caso .m no encontrado\n")
+        # end
         
         # Comprueba el número de files de los DataFrames de la solución
         genFilas = DataFrames.nrow(solGeneradores);
