@@ -35,11 +35,10 @@ while !finPrograma
     println("\nPulsa la tecla ENTER para continuar o cualquier otra entrada para salir.")
     if readline() == ""
         # Se mantiene la variable en falso para continuar en el bucle
-        finPrograma = false
+        global finPrograma = false
     else
         # Actualización de la variable para salir del bucle
-        finPrograma = true
-        exit()
+        global finPrograma = true
     end
 
 end
