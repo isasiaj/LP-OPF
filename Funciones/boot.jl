@@ -10,45 +10,26 @@ function boot()
 
     # Con esta red simple se genera una los diferentes OPF para que ya estén cargados cuando el usuario los utilice
     println("Test 1...")
-    LP_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "Gurobi", false, false)
+    LP_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "Gurobi", "No OTS")
 
     limpiarTerminal()
 
     println("Test1 - Completado")
     println("Test 2...")
-    LP_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "HiGHS", false, false)
+    LP_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "HiGHS", "No OTS")
 
     limpiarTerminal()
 
     println("Test 1 - Completado")
     println("Test 2 - Completado")
     println("Test 3...")
-    LP_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "Ipopt", false, false)
-
-    limpiarTerminal()
-
-    println("Test 1 - Completado")
-    println("Test 2 - Completado")
-    println("Test 3 - Completado")
-    println("Test 4...")
-    AC_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "Ipopt", false)
-
-    limpiarTerminal()
-
-    println("Test 1 - Completado")
-    println("Test 2 - Completado")
-    println("Test 3 - Completado")
-    println("Test 4 - Completado")
-    println("Test 5...")
-    AC_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "Couenne", false)
+    LP_OPF(test_linea, test_generador, test_nodos, 1, 1, 2, 1, "Ipopt", "No OTS")
 
     limpiarTerminal()
     
     println("Test 1 - Completado")
     println("Test 2 - Completado")
     println("Test 3 - Completado")
-    println("Test 4 - Completado")
-    println("Test 5 - Completado")
     sleep(1)
     
 end
