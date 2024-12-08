@@ -1,10 +1,10 @@
-# Esta funcion crea la matriz de susceptancia B con los datos de las líneas
-
+# Esta funcion calcula las susceptancias de cada linea.
+# Entrada 
+#   datos: Estrcutura con los datos de las lineas
+# Salida
+#   B: Estrutura con las susceptancias de cada linea
 function matrizSusceptancia(datos::DataFrame)
-
     # Se crea un vector con los valores de la susceptancia de cada línea B = 1/x
     B = 1 ./ (datos.x)
-
-    # Se devuelve la matriz susceptancia
     return B
 end

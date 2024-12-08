@@ -1,28 +1,28 @@
 # Esta función gestiona la variable del modelo y los DataFrames de la solución de la Optimización
+# Entrada
+#    modelo: El modelo que se ha creado para optimizar
+#    solGeneradores: DataFrame con la solución de los generadores
+#    solFlujos: DataFrame con la solución de los flujos
+#    solAngulos: DataFrame con la solución de los ángulos
+#    solLMP: DataFrame com la solución de precios marginales locales
+#    rutaM: ruta del archivo .m o "None" si este no existe
+#    solver: solver principal durante el estudio
 
 function gestorResultados(modelo, solGeneradores, solFlujos, solAngulos, solLMP, rutaM, solver)
 
-    # modelo: El modelo que se ha creado para optimizar
-    # solGeneradores: DataFrame con la solución de los generadores
-    # solFlujos: DataFrame con la solución de los flujos
-    # solAngulos: DataFrame con la solución de los ángulos
-    # solLMP; DataFrame com la solución de precios marginales locales
 
-    # Limpieza del terminal
+
     limpiarTerminal()
 
-    # Mostrar resultados en caso de que la optimización se haya realizado de forma exitosa, tanto de forma global como local, o si se ha llegado al máximo de iteraciones
+    # Mostrar resultados en caso de que la optimización se haya realizado de forma exitosa.
     if termination_status(modelo) == OPTIMAL || termination_status(modelo) == LOCALLY_SOLVED || termination_status(modelo) == ITERATION_LIMIT
 
-        # En caso de solución global
         if termination_status(modelo) == OPTIMAL
             println("Solución óptima encontrada")
 
-        # En caso de solución local
         elseif termination_status(modelo) == LOCALLY_SOLVED
             println("Solución local encontrada")
 
-        # En caso de haber llegado al máximo de iteraciones
         elseif termination_status(modelo) == ITERATION_LIMIT
             println("Límite de iteraciones alcanzado")
 
@@ -134,7 +134,6 @@ function gestorResultados(modelo, solGeneradores, solFlujos, solAngulos, solLMP,
 
             # En caso de que pulse la tecla ENTER
             if confirmarGuardarCSV == ""
-
                 # Guarda en los correspondientes ficheros los resultados obtenidos
                 CSV.write("./Resultados/solLMP.csv", solLMP, delim = ";")
                 CSV.write("./Resultados/solAngulos.csv", solAngulos, delim = ";")
@@ -142,21 +141,20 @@ function gestorResultados(modelo, solGeneradores, solFlujos, solAngulos, solLMP,
                 CSV.write("./Resultados/solGeneradores.csv", solGeneradores, delim = ";")
                 println("\nEl resultado se ha guardado en ./Resultados")
             
-            # En caso de que introduzca cualquier otra entrada
             else
+                # Cualquier otra entrada no se garda el resultado
                 println("\nNo se guardará el resultado")
 
             end
-
-        # En caso de que se introduzca cualquier otra entrada no se guarda el resultado 
+        
         else
+            # Cualquier otra entrada no se garda el resultado 
             println("\nNo se guardará el resultado")
             
         end
     
     # En caso de que no se llega a una solución óptima del problema
     else
-        # Imprime en el terminal la causa de la finalización de la optimización
         println("ERROR: ", termination_status(modelo))
 
     end

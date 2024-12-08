@@ -1,3 +1,21 @@
+# En esta funcion se calulca el punto optimo de la red recibida por parámetros, y sus precios marginales locales.
+# Entrada
+#   modelo:           Modelo de optimizacion con el solver pasado el "solver"
+#   dLinea:           Datos de las líneas
+#   dGen:             Datos de los generadores
+#   dNodo:            Datos de la demanda
+#   nL:               Número de líneas
+#   nG:               Número de generadores
+#   nN:               Número de nodos
+#   bMVA:             Potencia base
+#   solver:           Solver a utilizar
+# Salida
+#   m_final:          Modelo optimizado del sistema
+#   solGen:           Lista solución optima, generadores
+#   solFlujos:        Lista solución optima, lineas
+#   solAngulos:       Lista solución optima, angulo de los nodos
+#   node_lmp:         Lista solución optima, precios marginales locales
+#   node_mec:         Lista precios locales si no hubiera congestion
 function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
@@ -6,17 +24,16 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     B = matrizSusceptancia(dLinea)
     
     ########## VARIABLES ##########
-    # Se crean las variables de generadores con valor inicial de 0 
+    # Varibles de la potencia por unidad aportada por cada generdor
     @variable(modelo, P_G[ii in 1:nG], start = 0)
 
-    # Al consider que el módulo del voltaje en todos los nodos es la unidad y es invariante, V = 1
+    # Consideramos que el módulo del voltaje en todos los nodos es la unidad, V = 1
     # Lo único que varía es el ángulo
-    # Se crean las variables de los angulos para todos los nodos con valor inicial de 0 
+    # Variables de los angulos en radianes de los nodos
     @variable(modelo, θ[1:nN], start = 0)
 
-    # El flujo por la línea que conecta los nodos i-j es igual de la susceptancia de la línea por la diferencia de ángulos entre los nodos i-j
-    # Pᵢⱼ = Bᵢⱼ · (θᵢ - θⱼ)
-    # Se crean las variables de los flujos de potencia para todas las lineas con valor inicial de 0 
+    # Flujo de potencia linelizado por la línea ii
+    # Variables de los flujos de potencia por unidad para todas las lineas
     @variable(modelo, Pₗᵢₙₑ[ii in 1:nL], start = 0)
 
     ########## FUNCIÓN OBJETIVO ##########
@@ -30,14 +47,14 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
 
     ########## RESTRICCIONES ##########
     # Restricción de la relación entre los nodos: PGen[i] - PDem[i] = ∑(Pₗᵢₙₑ salientes) - ∑(Pₗᵢₙₑ entrantes)
-    # Siendo 
-    # P_G[ii] la potencia generada en el nodo ii
-    # P_Demand[ii] la potencia demandada en el nodo ii
+    # Siendo:
+
     # En la parte izquierda es el balance entre Potencia Generada menos Potencia Demandada
-    # en caso de ser positivo significa que es un nodo que suministra potencia a la red 
-    # y en caso negativo, consume potencia de la red
+    #   P_G[ii] la potencia generada en el nodo ii
+    #   P_Demand[ii] la potencia demandada en el nodo ii
+    # Positivo, el nodo que suministra potencia a la red y negativo, consume potencia de la red.
     # Y en la parte derecha es la función del flujo hacia la red
-    # Se multiplica a ambos lados por bMVA para asegurar que a la hora de calcular el dual quede con unidades
+    # Se multiplica a ambos lados por bMVA para asegurar que a la hora de calcular el dual quede con unidades €/MW
     node_power_balance = []
     for ii in 1:nN
         local_node_power_balance = @constraint(modelo, (sum(P_G[jj] for jj in 1:nG if dGen.bus[jj] == ii ) - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.fbus[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.tbus[jj] == ii ))*bMVA)
@@ -46,27 +63,30 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
 
     for ii in 1:nL
         if dLinea.status[ii] == 1
-            # Restricción de potencia máxima por la línea
+            # Restricciones de potencias máxima y mínima por la línea ii
             # Su valor abosoluto debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
             @constraint(modelo, Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii] / bMVA))
             @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii] / bMVA))
                 
-            # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
+            # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas.
             # B[ii] susceptancia de la linea ii, que conecta los nodos fbus[ii] - tbus[ii]
             # θ[ii] ángulo del nodo ii
-            # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ)
+            #   fbus[ii]: nodo definido como origen de la linea
+            #   fbus[ii]: nodo definido como destino de la linea
+            # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢ = Bᵢ·(θᵢ₁-θᵢ₁)
             @constraint(modelo, Pₗᵢₙₑ[ii] == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]))
         else
+            # Si el estado de la linea es cero, por esta no puede circular potencia
             @constraint(modelo, Pₗᵢₙₑ[ii] ==  0)
         end
     end
 
 
     # Restricciones de potencia mínima y máxima de los generadores (esta linea equivale a dos restricciones)
+    #   Si P_Gen_lb > 0 ud de potencia, el generador siempre estrá encendido
     @constraint(modelo, [ii in 1:nG], P_Gen_lb[ii] * Gen_Status[ii] <= P_G[ii] <= P_Gen_ub[ii] * Gen_Status[ii])
 
-    # Se selecciona el nodo 1 como nodo de refenrecia
-    # Necesario en caso de HiGHS para evitar un bucle infinito al resolver la optimización
+    # Se selecciona el nodo 1 como nodo de refencia de tensión, por lo que tiene angulo igual a 0 rad
     @constraint(modelo, θ[1] == 0)
     # Condicion de estabilidad
     @constraint(modelo, [ii in 1:nL], - pi/3 <=  θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]] <= pi/3)
@@ -82,5 +102,5 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
         push!(LMPs, dual(node_power_balance[ii]))
     end
 
-    return modelo, [round(value(P_G[ii]), digits = 6) for ii in 1:nG], [round(value(Pₗᵢₙₑ[ii]), digits = 6) for ii in 1:nL], [round(value(θ[ii]), digits = 6) for ii in 1:nN], LMPs
+    return modelo, [value(P_G[ii]) for ii in 1:nG], [value(Pₗᵢₙₑ[ii]) for ii in 1:nL], [value(θ[ii]) for ii in 1:nN], LMPs
 end

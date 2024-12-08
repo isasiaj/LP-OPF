@@ -1,3 +1,9 @@
+# Funcion donde se elecciona las caracteristicas del estudio al realizar.
+# Salida:
+#   casoEst:        Sistema seleccionada para su estudio
+#   optionLineSW:   Tipo de estudio a relizar sobre el sistema
+#   s:              Solver principal a usar durante el estudio
+
 function selectEstudio()
 
     while true
@@ -37,7 +43,7 @@ function selectEstudio()
         if respuesta == ""
             return casoEst, optionLineSW, s
         end
-        # En caso de introducir cualquier entrada, procede a cancelar y volver a seleccionar las opciones¡
+        # Cualquier entrada se vuelve a pedir seleccionar otro estudio desde el principio
     
     end
 

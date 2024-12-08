@@ -55,11 +55,7 @@ function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLineaPre::DataF
     # y en caso negativo, consume potencia de la red
     # Y en la parte derecha es la función del flujo hacia la red
     # Se multiplica a ambos lados por bMVA para asegurar que a la hora de calcular el dual quede con unidades
-    node_power_balance = []
-    for ii in 1:nN
-        local_node_power_balance = @constraint(modelo, (sum(P_G[jj] for jj in 1:nG if dGen.bus[jj] == ii ) - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.fbus[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.tbus[jj] == ii ))*bMVA)
-        push!(node_power_balance, local_node_power_balance)
-    end
+    @constraint(modelo, [ii in 1:nN], (sum(P_G[jj] for jj in 1:nG if dGen.bus[jj] == ii ) - P_Demand[ii])*bMVA == (sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.fbus[jj] == ii ) - sum(Pₗᵢₙₑ[jj] for jj in 1:nL if dLinea.tbus[jj] == ii ))*bMVA)
 
     # Se usa el resultado del OTS de la simulación anterior para obtener el estado de las lineas.
     # Se separa entre lineas conectadas y no conectada, para usar o no la variable Ls en los limites de potencia
@@ -72,8 +68,8 @@ function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLineaPre::DataF
     for ii in 1:nL
         if  dLinea.status[ii] != dLineaPre.status[ii]
             if dLinea.status[ii] == 1
-                @constraint(modelo, Ls[ii] >= 0)
-                @constraint(modelo, Ls[ii] <= 0)
+                @constraint(modelo, Ls[ii] >= dLineaPre.status[ii])
+                @constraint(modelo, Ls[ii] <= dLineaPre.status[ii])
                 # Restricción de potencia máxima por la línea, debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
                 local_line_state  = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA >= -(dLinea.rateA[ii]) * Ls[ii])
                 local_line_state2  = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA <=  (dLinea.rateA[ii]) * Ls[ii])
@@ -126,21 +122,17 @@ function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLineaPre::DataF
     ########### DUAL LMP ###########
     # Se calcula el dual de cada nodo repecto ala restriccion del balance de potencia.
     # Dado que la funcion de coste es el euros el resultado quedaria en:  €/MWh
-    LMPs = []
-    for ii in 1:nN
-        push!(LMPs, dual(node_power_balance[ii]))
-    end
 
     OTSservice = []
     OTSservice2 = []
     for ii in 1:nL
         if dLinea.status[ii] != dLineaPre.status[ii]
             if dLinea.status[ii] == 1
-                push!(OTSservice, round((dual(fixed_line_state[ii]) + dual(fixed_line_state2[ii]) + dual(fixed_line_state3[ii])), digits=6))
+                push!(OTSservice, dual(fixed_line_state[ii]) + dual(fixed_line_state2[ii]) + dual(fixed_line_state3[ii]))
                 push!(OTSservice2, 0)
             else
-                push!(OTSservice, round(dual(fixed_line_state[ii]), digits=6))
-                push!(OTSservice2, round(dual(fixed_line_state2[ii]), digits=6))
+                push!(OTSservice, 0)
+                push!(OTSservice2, 0)
             end
         else
             push!(OTSservice, 0)
@@ -148,5 +140,5 @@ function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLineaPre::DataF
         end
     end
 
-    return modelo, [round(value(P_G[ii]), digits = 6) for ii in 1:nG], [round(value(Pₗᵢₙₑ[ii]), digits = 6) for ii in 1:nL], [round(value(θ[ii]), digits = 6) for ii in 1:nN], LMPs, OTSservice, OTSservice2
+    return OTSservice, OTSservice2
 end

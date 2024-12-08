@@ -1,3 +1,8 @@
+# Esta funcion devulve un modelo con el solver cuyo nombre es recibido como entrada.
+# Entrada
+#   solver: String que contiene el nombre del solver.
+# Salida
+#   m:      Modelo creado con el solver seleccionado
 function IncializarModelo(solver::String) 
 
     if solver == "Gurobi"   # en este caso, el solver Gurobi
