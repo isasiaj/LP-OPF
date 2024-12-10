@@ -2,7 +2,7 @@
 # Salida:
 #   casoEst:        Sistema seleccionada para su estudio
 #   optionLineSW:   Tipo de estudio a relizar sobre el sistema
-#   s:              Solver principal a usar durante el estudio
+#   solver:         Solver principal a usar durante el estudio
 
 function selectEstudio()
 
@@ -23,7 +23,7 @@ function selectEstudio()
 
         # Elegir el solver que se quiere emplear
         listaSolvers = ["Gurobi", "HiGHS", "Ipopt"]
-        s = elegirOpcion(listaSolvers, "solver")
+        solver = elegirOpcion(listaSolvers, "solver")
 
         # Limpieza del terminal
         limpiarTerminal()
@@ -32,7 +32,7 @@ function selectEstudio()
         println("Resumen LP-OPF:")
         println("Caso de estudio ----- ", casoEst)
         println("Optimizar topologia - ", string(optionLineSW))
-        println("Optimizador --------- ", s)
+        println("Optimizador --------- ", solver)
 
         # Pregunta al usuario si las opciones anteriores concuerdan con lo que quiere resolver, 
         # en caso negativo puede volver a seleccionar las opciones 
@@ -41,7 +41,7 @@ function selectEstudio()
         
         # Si la respuesta es un "ENTER" procede a continuar y devolver dichas opciones
         if respuesta == ""
-            return casoEst, optionLineSW, s
+            return casoEst, optionLineSW, solver
         end
         # Cualquier entrada se vuelve a pedir seleccionar otro estudio desde el principio
     

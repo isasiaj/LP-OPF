@@ -2,28 +2,27 @@
 # Entrada
 #   solver: String que contiene el nombre del solver.
 # Salida
-#   m:      Modelo creado con el solver seleccionado
+#   modelo: Modelo creado con el solver seleccionado
 function IncializarModelo(solver::String) 
 
     if solver == "Gurobi"   # en este caso, el solver Gurobi
-        m    = Model(Gurobi.Optimizer)
+        modelo = Model(Gurobi.Optimizer)
         # Se deshabilita las salidas por defecto que tiene el optimizador
-        set_silent(m)
+        set_silent(modelo)
 
     elseif solver == "HiGHS"    # Para el solver HiGHS
-        m    = Model(HiGHS.Optimizer)
+        modelo = Model(HiGHS.Optimizer)
         # Se deshabilita las salidas por defecto que tiene el optimizador
-        set_silent(m)
+        set_silent(modelo)
 
     elseif solver == "Ipopt"    # Para el solver Ipopt
-        m    = Model(Ipopt.Optimizer)        
+        modelo = Model(Ipopt.Optimizer)        
         # Se deshabilita las salidas por defecto que tiene el optimizador
-        set_silent(m)
-
+        set_silent(modelo)
 
     else # En caso de error
         println("ERROR: Selección de solver en DC-OPF")
-        m = 0
+        modelo = 0
     end
-    return m
+    return modelo
 end

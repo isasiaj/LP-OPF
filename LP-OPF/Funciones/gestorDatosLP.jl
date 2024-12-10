@@ -1,3 +1,4 @@
+
 function gestorDatosLP(Generador::DataFrame, Demanda::DataFrame, nN::Int, bMVA::Int)
 
     # El Dataframe introducido como argumento "dGen" en "Generador" contiene los datos de los generadores sacado de su correspondiente archivo "datosGeneradores.csv"

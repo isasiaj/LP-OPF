@@ -1,4 +1,6 @@
-function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, fixed_lines::Vector{Bool})
+function calculoOPF_BinVar(solver::String, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, fixed_lines::Vector{Bool})
+    # Crear objeto modelo de optimizacion
+    modelo = IncializarModelo(solver)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
@@ -80,5 +82,5 @@ function calculoOPF_BinVar(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::Da
     ########## RESOLUCIÓN ##########
     optimize!(modelo) # Optimización
 
-    return modelo, [value(P_G[ii]) for ii in 1:nG], [value(Pₗᵢₙₑ[ii]) for ii in 1:nL], [value(θ[ii]) for ii in 1:nN], Ls
+    return Ls
 end
