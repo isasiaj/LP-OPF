@@ -2,12 +2,12 @@ include("./Funciones/gestorDatosLP.jl")
 include("./Funciones/matrizSusceptancia.jl")
 include("./Funciones/calculoOPF.jl")
 include("./Funciones/calculoOPF_OTS_BinVar.jl")
-include("./Funciones/calculoOPF_serviceOTS_Relax.jl")
+include("./Funciones/CalculateServiceOTS_dual.jl")
 include("./Funciones/IncializarModelo.jl")
 include("./Funciones/CalculoOPF_LMP.jl")
 include("./Funciones/CalculoOPF_OTS.jl")
 
-# Esta funcion se encarga de filtrar el tipo de optimizacion elegido.
+# Esta funcion se encarga de filtrar el tipo de optimizacion elegida.
 # Hay diferentes casos para los diferentes tipos de simulaciones que se pueden realizar.
 #
 # Entrada
@@ -21,7 +21,9 @@ include("./Funciones/CalculoOPF_OTS.jl")
 #   solver:           Solver a utilizar
 #   Calculate_LineSW: Tipo de optimización elegida por el usuario
 # Salida
-#   m_final:          Modelo optimizado del sistema
+#   Codigo_Fin:       Estado en el que termino la optimizacion
+#   coste_inicial:    Coste optimo total del sistema con la topologia inicial
+#   coste_final:      Coste optimo total del sistema con la topologia final
 #   solGen:           DataFrame con la solución optima, generadores
 #   solFlujos:        DataFrame con la solución optima, lineas
 #   solAngulos:       DataFrame con la solución optima, angulo de los nodos
@@ -31,7 +33,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
     if Calculate_LineSW == "No OTS"
         # Este método no optimiza la topología de la red
         # LP-OPF con precios marginales locales pero con una topología fija.
-        m_final, coste_inicial, P_G, Pₗᵢₙₑ, θ, node_lmp, node_mec = CalculoOPF_LMP(dLinea, dGen, dNodo, nL, nG, nN, bMVA, solver)
+        Codigo_Fin, coste_inicial, P_G, Pₗᵢₙₑ, θ, node_lmp, node_mec = CalculoOPF_LMP(dLinea, dGen, dNodo, nL, nG, nN, bMVA, solver)
 
         # Sin OTS el coste inicial y final es el mismo, la topología no se modifica.
         coste_final = coste_inicial
@@ -45,7 +47,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
         # En esta columna se puede fijar el estado de una linea al inicial, y evitar que se conecte/desconecte
         # por el algoritmo del OTS.
 
-        m_final, 
+        Codigo_Fin, 
         dLinea_final, 
         coste_inicial, 
         coste_final, 
@@ -75,14 +77,12 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
             for ii in 1:nL
 
                 if dLinea.status[ii] != dLinea_final.status[ii]
-                    m_aux = IncializarModelo(solver)
-
                     dLinea_aux = copy(dLinea)
                     dLinea_aux.status[ii] = dLinea_final.status[ii]
 
-                    m_aux, _, _, _, _ = calculoOPF(m_aux, dLinea_aux, dGen, dNodo, nL, nG, nN, bMVA)
+                    _, coste_aux,  _, _, _, _ = calculoOPF(solver, dLinea_aux, dGen, dNodo, nL, nG, nN, bMVA)
 
-                    push!(OTSservice, coste_inicial - objective_value(m_aux))
+                    push!(OTSservice, coste_inicial - coste_aux)
 
                 else
                     push!(OTSservice, 0)
@@ -100,9 +100,9 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
                     dLinea_aux = copy(dLinea_final)
                     dLinea_aux.status[ii] = dLinea.status[ii]
 
-                    m_aux, _, _, _, _ = calculoOPF(IncializarModelo(solver), dLinea_aux, dGen, dNodo, nL, nG, nN, bMVA)
+                    _, coste_aux, _, _, _, _ = calculoOPF(solver, dLinea_aux, dGen, dNodo, nL, nG, nN, bMVA)
 
-                    push!(OTSservice, objective_value(m_aux) - coste_final)
+                    push!(OTSservice, coste_aux - coste_final)
 
                 else
                     push!(OTSservice, 0)
@@ -116,12 +116,13 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
             # 
             # Lineas a desconectar a la red:
             #   El precio se calcula ___________________________
-            _, P_G_ini, Pₗᵢₙₑ_ini, θ_ini, _ = calculoOPF(IncializarModelo(solver), dLinea, dGen, dNodo, nL, nG, nN, bMVA)
-            OTSservice = []
+
+            # Optimizacion lineal auxiliar para facilitar la semilla a la siguiente.
+            # Con esto facilitamos que la siguiente optimizacion, que es no linel, llegue a lo solucion optima global.
+            _, _, P_G_ini, Pₗᵢₙₑ_ini, θ_ini, _ = calculoOPF(solver, dLinea, dGen, dNodo, nL, nG, nN, bMVA)
 
             # Calculo de como influye en coste modificar el estado de las lineas.
-            OTSservice, 
-            OTSservice2 = calculoOPF_serviceOTS_Relax(IncializarModelo("Ipopt") , 
+            OTSservice = CalculateServiceOTS_dual("Ipopt", 
                 dLinea_final, 
                 dLinea, 
                 dGen, 
@@ -133,11 +134,14 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
                 [value(P_G_ini[ii]) for ii in 1:nG], 
                 [value(Pₗᵢₙₑ_ini[ii]) for ii in 1:nL], 
                 [value(θ_ini[ii]) for ii in 1:nN])
+
+            # El coste deuvlto por la funcion anterior es en €/MW
+            OTSservice = OTSservice .* Pₗᵢₙₑ
         end
     end
 
     # Guardar solución en DataFrames en caso de encontrar solución óptima en cada modelo.
-    if ((termination_status(m_final) == OPTIMAL || termination_status(m_final) == LOCALLY_SOLVED || termination_status(m_final) == ITERATION_LIMIT))
+    if ((Codigo_Fin == OPTIMAL || Codigo_Fin == LOCALLY_SOLVED || Codigo_Fin == ITERATION_LIMIT))
 
     ########## Aquí se rellenen a ceros las variables no usadas en algunos de los metodos anteriores ##########
 
@@ -145,24 +149,7 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
             OTSservice = zeros(nL)  # Crea un array de ceros de tamaño nL
         end
 
-        if !@isdefined(OTSservice2)
-            OTSservice2 = zeros(nL)  # Crea un array de ceros de tamaño nL
-        end
-
-        if !@isdefined(node_lmp)
-            node_lmp = zeros(nN)  # Crea un array de ceros de tamaño nN
-        end
-
-        if !@isdefined(node_mec)
-            node_mec = zeros(nN)  # Crea un array de ceros de tamaño nN
-        end
-
-        if !@isdefined(Pₗᵢₙₑ)
-            Pₗᵢₙₑ = zeros(nL)  # Crea un array de ceros de tamaño nL
-        end
-
     ########## Se rellenen DataFrames con los resultados finales de la optimización ##########
-
 
         # solGen recoge los valores de la potencia generada de cada generador de la red
         # Primera columna, BUS: nodo donde se encuntra el generador
@@ -211,11 +198,10 @@ function LP_OPF(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, n
                             :MCC => round(node_lmp[ii] - node_mec[ii], digits = 3)))
         end
 
-        return m_final, solGen, solFlujos, solAngulos, solLMP
+        return Codigo_Fin, coste_inicial, coste_final, solGen, solFlujos, solAngulos, solLMP
 
     else # En caso de que no se encuentre solución a la optimización, se mostrará en pantalla el error
-        print(m_final)
-        println("ERROR: ", termination_status(m_final))
+        println("ERROR: ", Codigo_Fin)
     end
 
 end

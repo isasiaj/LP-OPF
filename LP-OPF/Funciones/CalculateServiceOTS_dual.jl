@@ -1,4 +1,5 @@
-function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLineaPre::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, last_P_G, last_Pₗᵢₙₑ, last_θ)
+function CalculateServiceOTS_dual(solver::String, dLinea::DataFrame, dLineaPre::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, last_P_G, last_Pₗᵢₙₑ, last_θ)
+    modelo = IncializarModelo(solver)
     set_optimizer_attribute(modelo, "tol", 1e-30)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
@@ -41,8 +42,8 @@ function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLineaPre::DataF
     # Siendo:
     #   cᵢ el coste del Generador en el nodo i
     #   Pᵢ la potencia generada del Generador en el nodo i
-    Total_cost = 7600 - sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nG) 
-    @objective(modelo, Max, Total_cost)
+    Total_cost = sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nG) 
+    @objective(modelo, Min, Total_cost)
 
 
     ########## RESTRICCIONES ##########
@@ -71,20 +72,20 @@ function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLineaPre::DataF
                 @constraint(modelo, Ls[ii] >= dLineaPre.status[ii])
                 @constraint(modelo, Ls[ii] <= dLineaPre.status[ii])
                 # Restricción de potencia máxima por la línea, debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
-                local_line_state  = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA >= -(dLinea.rateA[ii]) * Ls[ii])
-                local_line_state2  = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA <=  (dLinea.rateA[ii]) * Ls[ii])
+                local_line_state  = @constraint(modelo, Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii]/bMVA) * Ls[ii])
+                local_line_state2  = @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii]/bMVA) * Ls[ii])
                 # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
                 # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ)
-                local_line_state3 = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]) * Ls[ii]*bMVA)
+                local_line_state3 = @constraint(modelo, Pₗᵢₙₑ[ii] == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]) * Ls[ii])
             else
                 @constraint(modelo, Ls[ii] >= 1)
                 @constraint(modelo, Ls[ii] <= 1)
                 # Restricción de potencia máxima por la línea, debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
-                local_line_state3 = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA >= -(dLinea.rateA[ii]) * Ls[ii])
-                local_line_state = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA <=  (dLinea.rateA[ii]) * Ls[ii])
+                local_line_state3 = @constraint(modelo, Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii]/bMVA) * Ls[ii])
+                local_line_state = @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii]/bMVA) * Ls[ii])
                 # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
                 # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ)
-                local_line_state2 = @constraint(modelo, Pₗᵢₙₑ[ii]*bMVA == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]) * (Ls[ii])*bMVA)
+                local_line_state2 = @constraint(modelo, Pₗᵢₙₑ[ii] == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]) * (Ls[ii]))
             end
             push!(fixed_line_state,local_line_state)
             push!(fixed_line_state2,local_line_state2)
@@ -124,21 +125,17 @@ function calculoOPF_serviceOTS_Relax(modelo, dLinea::DataFrame, dLineaPre::DataF
     # Dado que la funcion de coste es el euros el resultado quedaria en:  €/MWh
 
     OTSservice = []
-    OTSservice2 = []
     for ii in 1:nL
         if dLinea.status[ii] != dLineaPre.status[ii]
             if dLinea.status[ii] == 1
                 push!(OTSservice, dual(fixed_line_state[ii]) + dual(fixed_line_state2[ii]) + dual(fixed_line_state3[ii]))
-                push!(OTSservice2, 0)
             else
                 push!(OTSservice, 0)
-                push!(OTSservice2, 0)
             end
         else
             push!(OTSservice, 0)
-            push!(OTSservice2, 0)
         end
     end
 
-    return OTSservice, OTSservice2
+    return OTSservice
 end

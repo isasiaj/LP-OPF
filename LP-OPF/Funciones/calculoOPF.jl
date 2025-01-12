@@ -1,22 +1,27 @@
-# En esta funcion se calulca el punto optimo de la red recibida por parámetros, y sus precios marginales locales.
+# En esta funcion se calcula el punto optimo de la red recibida por parámetros, y sus precios marginales locales.
+# Esta funcion se usa como modelo base el todos los tipos de estudio seleccionables
+#
 # Entrada
-#   modelo:           Modelo de optimizacion con el solver pasado el "solver"
-#   dLinea:           Datos de las líneas
-#   dGen:             Datos de los generadores
-#   dNodo:            Datos de la demanda
-#   nL:               Número de líneas
-#   nG:               Número de generadores
-#   nN:               Número de nodos
-#   bMVA:             Potencia base
-#   solver:           Solver a utilizar
+#   solver:     String que contiene el nombre del modelo a utilizar
+#   dLinea:     Datos de las líneas
+#   dGen:       Datos de los generadores
+#   dNodo:      Datos de la demanda
+#   nL:         Número de líneas
+#   nG:         Número de generadores
+#   nN:         Número de nodos
+#   bMVA:       Potencia base
+#   solver:     Solver a utilizar
 # Salida
-#   m_final:          Modelo optimizado del sistema
-#   solGen:           Lista solución optima, generadores
-#   solFlujos:        Lista solución optima, lineas
-#   solAngulos:       Lista solución optima, angulo de los nodos
-#   node_lmp:         Lista solución optima, precios marginales locales
-#   node_mec:         Lista precios locales si no hubiera congestion
-function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int)
+#   Codigo_Fin: Estado en el que termino la optimizacion
+#   coste:      Coste optimo total del sistema
+#   P_G:        Lista solución optima, generadores
+#   Pₗᵢₙₑ:       Lista solución optima, lineas
+#   θ:          Lista solución optima, angulo de los nodos
+#   LMPs:       Lista solución optima, precios marginales locales
+
+function calculoOPF(solver::String, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int)
+    # Crear objeto modelo de optimizacion
+    modelo = IncializarModelo(solver)
     ########## GESTIÓN DE DATOS ##########
     P_Cost0, P_Cost1, P_Cost2, P_Gen_lb, P_Gen_ub, Gen_Status, P_Demand = gestorDatosLP(dGen, dNodo, nN, bMVA)
 
@@ -101,6 +106,8 @@ function calculoOPF(modelo, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame
     for ii in 1:nN
         push!(LMPs, dual(node_power_balance[ii]))
     end
+    Codigo_Fin = termination_status(modelo)
+    coste = objective_value(modelo)
 
-    return modelo, [value(P_G[ii]) for ii in 1:nG], [value(Pₗᵢₙₑ[ii]) for ii in 1:nL], [value(θ[ii]) for ii in 1:nN], LMPs
+    return Codigo_Fin, coste, [value(P_G[ii]) for ii in 1:nG], [value(Pₗᵢₙₑ[ii]) for ii in 1:nL], [value(θ[ii]) for ii in 1:nN], LMPs
 end

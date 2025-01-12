@@ -1,8 +1,9 @@
 # Bucle que duvuelve la opción que usuario elija dentro de una lista, una vez confirmada la elección
-# o:    Lista de string con el texto de las diferentes opciones.
-# tipo: Texto para mostrar que eleccion tiene que tomar el usuario
-#
-# return: Se devulve el texto de la opcion elegida
+# Entrada
+#   o:    Lista de string con el texto de las diferentes opciones.
+#   tipo: Texto para mostrar que eleccion tiene que tomar el usuario
+# Salida
+#   return: Se devulve el texto de la opcion elegida
 function elegirOpcion(o::Vector{String}, tipo::String)
 
     # Inicialización de las variables
@@ -12,7 +13,6 @@ function elegirOpcion(o::Vector{String}, tipo::String)
     while !valido 
 
         try
-
             # Limpia el terminal
             limpiarTerminal()
 

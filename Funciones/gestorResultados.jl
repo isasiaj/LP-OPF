@@ -1,75 +1,32 @@
-# Esta función gestiona la variable del modelo y los DataFrames de la solución de la Optimización
+# Esta función gestiona los DataFrames de la solución de la Optimización
 # Entrada
-#    modelo: El modelo que se ha creado para optimizar
+#    Codigo_Fin: Motivo por el que se termino la optimizacion principal 
+#    coste_inicial: Coste total con la topología inicial del sistema
+#    coste_final: Coste total con la topología final del sistema
 #    solGeneradores: DataFrame con la solución de los generadores
 #    solFlujos: DataFrame con la solución de los flujos
 #    solAngulos: DataFrame con la solución de los ángulos
 #    solLMP: DataFrame com la solución de precios marginales locales
-#    rutaM: ruta del archivo .m o "None" si este no existe
-#    solver: solver principal durante el estudio
 
-function gestorResultados(modelo, solGeneradores, solFlujos, solAngulos, solLMP, rutaM, solver)
-
-
-
-    limpiarTerminal()
+function gestorResultados(Codigo_Fin, coste_inicial::Float64, coste_final::Float64, solGeneradores::DataFrame, solFlujos::DataFrame, solAngulos::DataFrame, solLMP::DataFrame)
 
     # Mostrar resultados en caso de que la optimización se haya realizado de forma exitosa.
-    if termination_status(modelo) == OPTIMAL || termination_status(modelo) == LOCALLY_SOLVED || termination_status(modelo) == ITERATION_LIMIT
+    if Codigo_Fin == OPTIMAL || Codigo_Fin == LOCALLY_SOLVED || Codigo_Fin == ITERATION_LIMIT
 
-        if termination_status(modelo) == OPTIMAL
+        if Codigo_Fin == OPTIMAL
             println("Solución óptima encontrada")
 
-        elseif termination_status(modelo) == LOCALLY_SOLVED
+        elseif Codigo_Fin == LOCALLY_SOLVED
             println("Solución local encontrada")
 
-        elseif termination_status(modelo) == ITERATION_LIMIT
+        elseif Codigo_Fin == ITERATION_LIMIT
             println("Límite de iteraciones alcanzado")
 
         end
-
-        # # Preguntar al usuario si quiere ver el sistema eléctrico
-        # # En caso de que la ruta exista
-        # solucion = 0
-        # if rutaM != "None"
-        #     caso = parse_file(rutaM)
-
-        #     println("\n¿Quiere ver gráficamente la red eléctrica seleccionada?")
-        #     println("Pulsa la tecla ENTER para confirmar o cualquier otra entrada para negar")
-        #     verGrafica = readline(stdin)
-        #     if verGrafica == ""
-        #         # Con el paquete de PowerPlots.jl se representa el sistema
-        #         powerplot(caso)
-
-        #     else
-        #         println("\nNo se mostrará gráficamente")
-        #     end
-
-        #     # Usando Gurobi
-        #     if solver == "Gurobi"
-        #         pm = instantiate_model(rutaM, DCMPPowerModel, PowerModels.build_opf)
-        #         solucion = optimize_model!(pm, optimizer=Gurobi.Optimizer)
-        #     # Usando HiGHS
-        #     elseif solver == "HiGHS"
-        #         solucion = solve_dc_opf(rutaM, HiGHS.Optimizer)
-        #     # Usando Ipopt
-        #     elseif solver == "Ipopt"
-        #         solucion = solve_ac_opf(rutaM, Ipopt.Optimizer)
-        #     # Error
-        #     else
-        #         print("Error al cargar la resolución DC por PowerModels")
-        #     end
-
-        #     limpiarTerminal()
-
-        # # En caso de que la ruta no exista
-        # else
-        #     println("Archivo del caso .m no encontrado\n")
-        # end
-        
+      
         # Comprueba el número de files de los DataFrames de la solución
         genFilas = DataFrames.nrow(solGeneradores);
-        flFilas = DataFrames.nrow(solFlujos);
+        flFilas  = DataFrames.nrow(solFlujos);
         angFilas = DataFrames.nrow(solAngulos);
         lmpFilas = DataFrames.nrow(solAngulos);
 
@@ -109,14 +66,14 @@ function gestorResultados(modelo, solGeneradores, solFlujos, solAngulos, solLMP,
 
         end
 
-        # # Se imprime la solución obtenida en caso de utilizar el paquete PowerModels.jl
-        # # En caso que exista el archivo .m
-        # if solucion != 0
-        #     print("\nCoste final obtenido en PowerModels: ", round(solucion["objective"], digits = 2), "€/h")
-        # end
-
         # Imprime en pantalla el coste final que se obtiene tras la optimización
-        println("\nCoste final con el programa: ", round(objective_value(modelo), digits = 2), " €/h")
+        if coste_inicial == coste_final
+            println("\nCoste optimo del sistema: ", round(coste_inicial, digits = 2), " €/h")
+        else
+            println("\n\nSe ha optimizado la topología reducion el coste total:")
+            println(" Coste inicial del sistema: ", round(coste_inicial, digits = 2), " €/h")
+            println(" Coste  final  del sistema: ", round(coste_final, digits = 2), " €/h")
+        end
 
         # Pregunta al usuario si quiere guardar los datos en un CSV
         println("\n¿Quiere guardar el resultado en un archivo CSV?")
@@ -155,8 +112,8 @@ function gestorResultados(modelo, solGeneradores, solFlujos, solAngulos, solLMP,
     
     # En caso de que no se llega a una solución óptima del problema
     else
-        println("ERROR: ", termination_status(modelo))
-
+        println("ERROR: ", Codigo_Fin)
+        readline()
     end
 
 end

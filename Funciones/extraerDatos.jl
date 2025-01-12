@@ -10,7 +10,6 @@
 #   nGenerador:     número de gneradores
 #   nNodos:         número de nodos
 #   bMVA:           potencia base
-#   ruta:           ruta al archivo .m del caso, si no hay se devulve "None"
 function extraerDatos(c::String)
     println("\nExtrayendo datos...")
     # Datos de las lineas
@@ -34,15 +33,7 @@ function extraerDatos(c::String)
     # Potencia base
     bMVA = 100
 
-    # Ruta al archivo .m
-    rutaArchivoM = "Casos/$c/$c.m"
-
-    if isfile(rutaArchivoM)
-        ruta = rutaArchivoM
-    else
-        ruta = "None"
-    end
     println("Datos extraídos.")
     # Devuelve todos los DataFrames y variables generadas
-    return(datosLinea, datosGenerador, datosNodo, nLineas, nGenerador, nNodos, bMVA, ruta)
+    return(datosLinea, datosGenerador, datosNodo, nLineas, nGenerador, nNodos, bMVA)
 end
