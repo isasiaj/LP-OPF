@@ -69,11 +69,11 @@ Explicación básica de los diferentes repositorios presentes en este proyecto.
   - `limpiarTerminal.jl`: Deja el terminal limpio.
   - `selectEstudio.jl`: Pide al usuario que introduzca por teclado el caso a estudiar, el *solver* y la optimización que quiere realizar.
 
-- **`LP-OPF/`**: Contiene el código utilizado durante la optimización. Explicación detalla dentro del directorio.
+- **`./LP-OPF/`**: Contiene el código utilizado durante la optimización. Explicación detalla dentro del directorio.
 
 - **`./Resultados/`**: Una vez realiza las optimizaciones, en esta carpeta se guardan los resultados de éstas:
   - `solAngulos.csv`: Contiene los ángulos de desfase de la tensión en los diferentes nodos del sistema. Las cabeceras de este archivo son el nodo *BUS* y el ángulo de desfase en grados *GRADOS*.
-  - `solFlujosLineas.csv`: Guías de usuario.
+  - `solFlujosLineas.csv`: Contiene los datos referentes a las líneas y los flujos de potencia. nodos que unes la línea (*FBUS* y *TBUS*), fLujo de potencia optimo a través de la línea en MW *FLUJO*, proporción de saturación de la línea en tanto por uno *LINE_CAPACITY*, Estados inicial y final de línea (*STATUS_0* y *STATUS_1*) y Precio del servicio de cambio de topología en € *OTS_PRICE*.
   - `solGeneradores.csv`: Contiene la potencia optima generada por los diferentes generadores del sistema. Las cabeceras de este archivo son el nodo donde se encuentra *BUS* y potencia generada en MW *PGEN*.
-  - `solLMP.csv`: Contiene los precios marginales locales de la energía en cada nodo del sistema. Las cabeceras de este archivo son el nodo *BUS*, el precio marginal local (€/MW) *LMP*, la componente marginal de energía *MEC* y la componente marginal de congestión *MCC*.
+  - `solLMP.csv`: Contiene los precios marginales locales de la energía en cada nodo del sistema. Las cabeceras de este archivo son el nodo *BUS*, el precio marginal local (€/MW) *LMP*, la componente marginal de energía (€/MW) *MEC* y la componente marginal de congestión (€/MW) *MCC*.
 
