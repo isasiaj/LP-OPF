@@ -1,3 +1,22 @@
+# Está funcion calcula El impacto de CONECTAR líneas a un sistema, usando duales.
+# Devulve el impacto de conectar una linea usando duales
+#
+# Entrada
+#   solver:      Solver a utilizar
+#   dLinea:      Datos de las líneas, topología inicial
+#   dLineaPre:   Datos de las líneas, topología final
+#   dGen:        Datos de los generadores
+#   dNodo:       Datos de la demanda
+#   nL:          Número de líneas
+#   nG:          Número de generadores
+#   nN:          Número de nodos
+#   bMVA:        Potencia base
+#   last_P_G:    Potencia generada con la topología inicial
+#   last_Pₗᵢₙₑ:   Flujo de potencia por las líneas con la topología inicial
+#   last_θ:      Desfase tensión en cada nodo con la topología inicial
+# Salida
+#   OTSservice:  Impacto sobre el precio final de CONECTAR lineas, 
+#                para las lineas desconectadas o fijas se pasa cero
 function CalculateServiceOTS_dual(solver::String, dLinea::DataFrame, dLineaPre::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, last_P_G, last_Pₗᵢₙₑ, last_θ)
     modelo = IncializarModelo(solver)
     set_optimizer_attribute(modelo, "tol", 1e-30)
@@ -42,7 +61,7 @@ function CalculateServiceOTS_dual(solver::String, dLinea::DataFrame, dLineaPre::
     # Siendo:
     #   cᵢ el coste del Generador en el nodo i
     #   Pᵢ la potencia generada del Generador en el nodo i
-    Total_cost = sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nG) 
+    Total_cost = sum(((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2)*Gen_Status[ii]) for ii in 1:nG) 
     @objective(modelo, Min, Total_cost)
 
 
@@ -73,7 +92,7 @@ function CalculateServiceOTS_dual(solver::String, dLinea::DataFrame, dLineaPre::
                 @constraint(modelo, Ls[ii] <= dLineaPre.status[ii])
                 # Restricción de potencia máxima por la línea, debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
                 local_line_state  = @constraint(modelo, Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii]/bMVA) * Ls[ii])
-                local_line_state2  = @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii]/bMVA) * Ls[ii])
+                local_line_state2 = @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii]/bMVA) * Ls[ii])
                 # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
                 # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ)
                 local_line_state3 = @constraint(modelo, Pₗᵢₙₑ[ii] == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]) * Ls[ii])
@@ -82,7 +101,7 @@ function CalculateServiceOTS_dual(solver::String, dLinea::DataFrame, dLineaPre::
                 @constraint(modelo, Ls[ii] <= 1)
                 # Restricción de potencia máxima por la línea, debe ser menor que el dato de potencia max en dicha línea "dLinea.rateA"
                 local_line_state3 = @constraint(modelo, Pₗᵢₙₑ[ii] >= -(dLinea.rateA[ii]/bMVA) * Ls[ii])
-                local_line_state = @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii]/bMVA) * Ls[ii])
+                local_line_state  = @constraint(modelo, Pₗᵢₙₑ[ii] <=  (dLinea.rateA[ii]/bMVA) * Ls[ii])
                 # Restriccion de la potencia que circula por las lineas segun las leyes de kirchhoff simplificadas, para el calculo de LP-OPF.
                 # Siendo la potencia que circula en la linea que conecta los nodos i-j: Pᵢⱼ = Bᵢⱼ·(θᵢ-θⱼ)
                 local_line_state2 = @constraint(modelo, Pₗᵢₙₑ[ii] == B[ii] * (θ[dLinea.fbus[ii]] - θ[dLinea.tbus[ii]]) * (Ls[ii]))

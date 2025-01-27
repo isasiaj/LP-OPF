@@ -46,7 +46,7 @@ function calculoOPF(solver::String, dLinea::DataFrame, dGen::DataFrame, dNodo::D
     # Siendo:
     #   cᵢ el coste del Generador en el nodo i
     #   Pᵢ la potencia generada del Generador en el nodo i
-    Total_cost = sum((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2) for ii in 1:nG)
+    Total_cost = sum(((P_Cost0[ii] + P_Cost1[ii] * P_G[ii] * bMVA + P_Cost2[ii] * (P_G[ii] * bMVA)^2)*Gen_Status[ii]) for ii in 1:nG)
     @objective(modelo, Min, Total_cost)
 
 

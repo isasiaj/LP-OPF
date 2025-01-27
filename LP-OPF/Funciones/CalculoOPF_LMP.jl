@@ -1,4 +1,4 @@
-# Está funcion calcula El OPF de un sistema qie recibe como datos de entrada.
+# Está funcion calcula el OPF de un sistema que recibe como datos de entrada.
 # Devulve el los resultados del OPF y los diferentes componentes del LMP.
 #
 # Entrada
@@ -26,7 +26,7 @@ function CalculoOPF_LMP(dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL
     # Se modifican las lineas de manera que la potencia máxima es igual a la demanda total.
     # Se usa para calcular cual seria el LMP si no hubiera congestion en las lineas.
     dLinea_no_cons = copy(dLinea)
-    Demanda_total = round(Int, sum(dNodo.Pd))
+    Demanda_total  = round(Int, sum(dNodo.Pd))
     for ii in 1:nL
         dLinea_no_cons.rateA[ii] =  Demanda_total
     end
