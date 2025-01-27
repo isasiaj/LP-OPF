@@ -1,3 +1,18 @@
+# Está funcion calcula la topología optima del sistema que recibe como datos de entrada.
+# Devulve el estado optimo de las líneas
+#
+# Entrada
+#   solver:      Solver a utilizar
+#   dLinea:      Datos de las líneas
+#   dGen:        Datos de los generadores
+#   dNodo:       Datos de la demanda
+#   nL:          Número de líneas
+#   nG:          Número de generadores
+#   nN:          Número de nodos
+#   bMVA:        Potencia base
+#   fixed_lines: Lineas que queremos mantener fijo su estado
+# Salida
+#   Ls:          Topología optima, con las restriccones dadas
 function calculoOPF_BinVar(solver::String, dLinea::DataFrame, dGen::DataFrame, dNodo::DataFrame, nL::Int, nG::Int,nN::Int, bMVA::Int, fixed_lines::Vector{Bool})
     # Crear objeto modelo de optimizacion
     modelo = IncializarModelo(solver)
