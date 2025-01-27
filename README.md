@@ -1,7 +1,5 @@
 # Título del Proyecto
-Optimización de la topología de
-redes eléctricas para minimizar
-costes de operación
+Optimización de la topología de redes eléctricas para minimizar costes de operación.
 # Trabajo de Fin de Grado - Ingeniería Eléctrica
 
 Este repositorio contiene el código desarrollado para el Trabajo de Fin de Grado (TFG) del Grado en Ingeniería Eléctrica en la Universidad Politécnica de Madrid (UPM).
@@ -30,24 +28,21 @@ El desarrollo de este proyecto tomó como punto de partida el código de un TFG 
 
 # Explicación código
 
-Este código ha sido desarollado para el TFG del Grado de Ingería Eléctrica por la UPM. Su función pricipal es la óptimización de la topología en sistemas de transporte de energía eléctrica.
+Este código ha sido desarrollado para el TFG del Grado de Ingería Eléctrica por la UPM. Su función principal es la optimización de la topología en sistemas de transporte de energía eléctrica.
 
-Este código se ejecuta desde el archivo "main.jl", desde el cual se llaman al resto de sus componetes. 
+Este código se ejecuta desde el archivo "main.jl", desde el cual se llaman al resto de sus componentes. 
 
 El código se puede dividir en cuatro partes:
 
-* **boot**: Se ejecuta solo al abrir el codigo, hace unas optimizaciones inciales para reducir el tiempo de ejecución de las siguientes optimizaciones.
-* **selectEstudio**: Permite al usuario selccionar el sistema que quiere optimizar, el *solver* y las funcionalidades a utilizar durante la optimización.
-* **extraerDatos**: Carga los datos de la red selccionada desde los archivo *.csv* presentes en la carpeta `./Casos/`
+* **boot**: Se ejecuta solo una vez, hace unas optimizaciones iniciales para reducir el tiempo de ejecución de las siguientes optimizaciones.
+* **selectEstudio**: Permite al usuario seleccionar el sistema que quiere optimizar, el *solver* y las funcionalidades a utilizar durante la optimización.
+* **extraerDatos**: Carga los datos de la red seleccionada desde los archivo *.csv* presentes en la carpeta `./Casos/`
 * **LP_OPF**: Realiza la optimización seleccionada por el usuario.
-* **gestorResultados**: Una vez realiza la optmización gestiona los resultados, permientiendo mostralos por pantalla, para redes pequeñas, y almacenarlos.
-
-# Estrcutura de archivos
-
+* **gestorResultados**: Una vez realiza la optimización gestiona los resultados, permitiendo mostrarlos por pantalla, para redes pequeñas, y almacenarlos.
 
 ## Descripción de los directorios
 
-Explicación básica de los diferetes repositorios presentes en este proyecto.
+Explicación básica de los diferentes repositorios presentes en este proyecto.
 
 ```plaintext
 .
@@ -64,21 +59,21 @@ Explicación básica de los diferetes repositorios presentes en este proyecto.
 - **`./Casos/`**: Contiene los datos de entrada utilizados en el proyecto. Explicación detalla dentro del directorio.
 
 - **`./Funciones/`**: Contiene las funciones que necesitan ser vistas desde el archivo `main.jl`.
-  - `./sistema_test/`: Sistema usando durante la carga incial.
+  - `./sistema_test/`: Sistema usando durante la carga inicial.
   - `boot.jl`: Optimización inicial para que el resto de optimizaciones de ejecuten de forma más rápida.
-  - `cargarFunciones.jl`: Archivo que lal llamarlo carga el resto de funciones.
+  - `cargarFunciones.jl`: Archivo que al llamarlo carga el resto de funciones.
   - `cargarLibrerias.jl`: Punto de entrada principal del proyecto.
   - `elegirOpcion.jl`: Función que permite al usuario elegir una opción dentro de una lista de cadenas de texto.
-  - `extraerDatos.jl`: Función que carga los datos almacenados en los archivo *.csv* del caso que se le pasé por parámetro
-  - `gestorResultados.jl`: Permite mostrar por pantalla los DstaFreme de los resultados de optmización, para redes epqueñas, y almacenarlos en el directorio `./Resultados/`.
+  - `extraerDatos.jl`: Función que carga los datos almacenados en los archivos *.csv* del caso que se le pasé por parámetro
+  - `gestorResultados.jl`: Permite mostrar por pantalla los *DataFreme* de los resultados de optimización, para redes pequeñas, y almacenarlos en el directorio `./Resultados/`.
   - `limpiarTerminal.jl`: Deja el terminal limpio.
-  - `selectEstudio.jl`: Pide al usuario que introduzca por teclado el caso a estudiar, el solver y la optimización que quiere realizar.
+  - `selectEstudio.jl`: Pide al usuario que introduzca por teclado el caso a estudiar, el *solver* y la optimización que quiere realizar.
 
 - **`LP-OPF/`**: Contiene el código utilizado durante la optimización. Explicación detalla dentro del directorio.
 
-- **`./Resultados/`**: Una vez realiza las optimizaciones, en esta carpeta se guardarn los resultados de éstas:
+- **`./Resultados/`**: Una vez realiza las optimizaciones, en esta carpeta se guardan los resultados de éstas:
   - `solAngulos.csv`: Contiene los ángulos de desfase de la tensión en los diferentes nodos del sistema. Las cabeceras de este archivo son el nodo *BUS* y el ángulo de desfase en grados *GRADOS*.
   - `solFlujosLineas.csv`: Guías de usuario.
-  - `solGeneradores.csv`: Contiene la potencia optima generada por los diferentes generadores del sistema. Las cabeceras de este archivo son el nodo donde se encuntra *BUS* y potencia generada en MW  *PGEN*.
+  - `solGeneradores.csv`: Contiene la potencia optima generada por los diferentes generadores del sistema. Las cabeceras de este archivo son el nodo donde se encuentra *BUS* y potencia generada en MW *PGEN*.
   - `solLMP.csv`: Contiene los precios marginales locales de la energía en cada nodo del sistema. Las cabeceras de este archivo son el nodo *BUS*, el precio marginal local (€/MW) *LMP*, la componente marginal de energía *MEC* y la componente marginal de congestión *MCC*.
 
